@@ -1,0 +1,14 @@
+{
+  "name": "@swara/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "cargo build --release -p swara-api",
+    "dev": "cargo watch -x 'run -p swara-api'",
+    "test": "cargo test -p swara-api",
+    "lint": "cargo clippy -p swara-api -- -D warnings",
+    "check": "cargo check -p swara-api",
+    "migrate": "sqlx migrate run",
+    "migrate:revert": "sqlx migrate revert"
+  }
+}

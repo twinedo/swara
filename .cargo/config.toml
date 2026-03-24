@@ -1,0 +1,19 @@
+[build]
+# Faster incremental builds in dev — use lld on Linux, zld on macOS
+# Uncomment the one that matches your dev machine:
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]    # Linux
+# rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld"]  # macOS
+
+[profile.dev]
+# Slightly faster sqlx compile-time query checks in dev
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[profile.test]
+opt-level = 1

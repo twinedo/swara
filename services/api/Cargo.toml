@@ -1,0 +1,63 @@
+[package]
+name = "swara-api"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "swara-api"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true }
+
+# Web framework
+axum = { workspace = true }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Database
+sqlx             = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate", "rust_decimal"] }
+
+# Redis
+deadpool-redis = { workspace = true }
+redis = { workspace = true }
+
+# Auth
+jsonwebtoken = { workspace = true }
+bcrypt = { workspace = true }
+
+# LiveKit
+livekit-api = { workspace = true }
+livekit-protocol = { workspace = true }
+livekit-runtime = { workspace = true }
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+utoipa = { version = "5.4", features = ["axum_extras", "chrono", "uuid"] }
+utoipa-swagger-ui = { version = "8.1.0", features = ["axum", "vendored"] }
+
+# Types
+uuid             = { version = "1.22", features = ["v4", "serde"] }
+chrono           = { version = "0.4", features = ["serde"] }
+rust_decimal     = { version = "1", features = ["serde"] }
+time             = { version = "0.3", features = ["formatting"] }
+
+# Config
+dotenvy = { workspace = true }
+config = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing          = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+axum-test = "14"
+tokio-test = "0.4"

@@ -1,0 +1,68 @@
+[workspace]
+members = [
+    "services/api",
+]
+resolver = "2"
+
+# Shared dependency versions — avoids version drift across future crates
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web framework
+axum = { version = "0.7", features = ["json", "query", "multipart"] }
+tower = { version = "0.4" }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Database
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "uuid",
+    "chrono",
+    "json",
+] }
+
+# Redis
+deadpool-redis = { version = "0.14" }
+redis = { version = "0.24", features = ["tokio-comp"] }
+
+# Auth / JWT
+jsonwebtoken = { version = "9" }
+bcrypt = { version = "0.15" }
+
+# LiveKit
+# Pin the LiveKit 0.3 SDK stack; newer 0.3 patch releases are not fully
+# semver-compatible with `livekit-api = 0.3.4`.
+livekit-api = { version = "=0.3.4" }
+livekit-protocol = { version = "=0.3.4" }
+livekit-runtime = { version = "=0.3.1", features = ["tokio"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+
+# IDs & time
+uuid = { version = "1", features = ["serde", "v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Config / env
+dotenvy = { version = "0.15" }
+config = { version = "0.14" }
+
+# Error handling
+thiserror = { version = "1" }
+anyhow = { version = "1" }
+
+# Tracing
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
