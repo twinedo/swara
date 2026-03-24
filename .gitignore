@@ -11,6 +11,8 @@ node_modules
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*.local
+.local/
 
 # Testing
 coverage
@@ -36,3 +38,19 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# Rust
+/target/
+services/*/target/
+**/*.rs.bk
+
+# sqlx offline query cache (commit this — enables offline compile-time checks in CI)
+# sqlx-data.json  ← do NOT gitignore this
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
