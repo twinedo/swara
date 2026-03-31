@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swara — Concept UI V1.0 (Locked)</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0d0d0d;
+  --bg-surface: #141414;
+  --bg-card: #1a1a1a;
+  --border-default: #242424;
+  --border-subtle: #1e1e1e;
+  --accent: #e8c84a;
+  --text-primary: #e8e2d0;
+  --text-muted: #666666;
+  --text-disabled: #3a3a3a;
+  --live: #e84a4a;
+  --online: #4ae87a;
+}
+
+body {
+  background: #111;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding: 32px 16px 56px;
+}
+.page { max-width: 1200px; margin: 0 auto; }
+
+.v-stamp {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: 3px; color: var(--text-muted);
+  text-transform: uppercase; text-align: center; margin-bottom: 40px;
+}
+.v-stamp b { color: var(--accent); font-weight: 400; }
+
+.sec-title {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 3px; color: var(--text-muted);
+  text-transform: uppercase; text-align: center;
+  margin: 56px 0 24px;
+  display: flex; align-items: center; gap: 16px;
+}
+.sec-title::before, .sec-title::after { content:''; flex:1; height:1px; background:var(--border-default); }
+
+/* ANIMATIONS */
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
+@keyframes wave { from{transform:scaleY(0.15);opacity:0.3} to{transform:scaleY(1);opacity:0.9} }
+
+/* ══ DESKTOP ══ */
+.desktop-wrap {
+  background: #000;
+  border-radius: 14px;
+  border: 2px solid #2a2a2a;
+  overflow: hidden;
+}
+.desktop-chrome {
+  background: #0a0a0a; padding: 9px 14px;
+  display: flex; align-items: center; gap: 7px;
+  border-bottom: 1px solid #1a1a1a;
+}
+.chrome-dot { width: 11px; height: 11px; border-radius: 50%; }
+.chrome-dot.r{background:#e84a4a} .chrome-dot.y{background:#e8c84a} .chrome-dot.g{background:#4ae87a}
+.chrome-url {
+  flex:1; background:#161616; border-radius:5px;
+  height:22px; display:flex; align-items:center; padding:0 10px; margin-left:8px;
+}
+.chrome-url span { font-size:10px; color:var(--text-muted); }
+
+.app-shell {
+  background: var(--bg-primary);
+  display: grid; grid-template-columns: 1fr 1fr;
+  min-height: 580px;
+}
+.app-topbar {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--border-default);
+}
+.app-brand {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px; color: var(--accent); letter-spacing: 2px;
+}
+.app-brand span { color: var(--text-muted); font-size: 14px; letter-spacing: 3px; margin-left: 4px; }
+.on-air-badge {
+  display: flex; align-items: center; gap: 7px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: 2px; color: var(--live);
+}
+.on-air-dot { width:7px; height:7px; border-radius:50%; background:var(--live); animation:blink 1.2s infinite; }
+
+.left-col {
+  padding: 24px 22px 24px 28px;
+  border-right: 1px solid var(--border-default);
+  display: flex; flex-direction: column; gap: 20px;
+}
+.right-col {
+  padding: 24px 28px 24px 22px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+
+/* Tuned Card */
+.tuned-card {
+  background: var(--bg-card); border: 1px solid var(--border-default);
+  border-radius: 10px; padding: 20px 22px;
+}
+.card-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 6px;
+}
+.tuned-freq-row { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; }
+.tuned-freq { font-family:'Bebas Neue',sans-serif; font-size:64px; color:var(--accent); line-height:1; }
+.tuned-fm { font-family:'Share Tech Mono',sans-serif; font-size:14px; color:var(--text-muted); letter-spacing:2px; }
+.tuned-meta {
+  display:flex; gap:16px; margin-bottom:14px;
+  font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:1px; color:var(--text-muted);
+}
+.tuned-meta b { color:var(--text-primary); font-weight:400; }
+.waveform { display:flex; align-items:center; gap:2.5px; height:20px; }
+.wv { width:3px; background:var(--accent); border-radius:2px; animation:wave ease-in-out infinite alternate; }
+
+.channels-label {
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px; letter-spacing:2px; color:var(--text-muted); text-transform:uppercase;
+}
+.ch-list { display:flex; flex-direction:column; gap:5px; }
+.ch-row {
+  background:var(--bg-card); border:1px solid var(--border-default);
+  border-radius:8px; padding:11px 16px;
+  display:flex; align-items:center; gap:14px;
+}
+.ch-row.active { border-color:#e8c84a33; background:#191600; }
+.ch-freq { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--accent); line-height:1; min-width:46px; }
+.ch-freq.dim { color:var(--text-muted); }
+.ch-info { flex:1; }
+.ch-name { font-size:13px; font-weight:500; color:var(--text-primary); }
+.ch-name.dim { color:var(--text-muted); }
+.ch-sub { font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:1px; color:var(--text-muted); margin-top:2px; }
+.live-dot-sm { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--online); margin-right:5px; animation:blink 1.5s infinite; vertical-align:middle; }
+.ch-stat { font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:1px; text-align:right; }
+.ch-stat .count { color:var(--text-primary); }
+.ch-stat .word { color:var(--text-muted); display:block; }
+.ch-stat.offline { color:var(--text-disabled); }
+
+/* Map Card */
+.map-card {
+  background:var(--bg-card); border:1px solid var(--border-default);
+  border-radius:10px; padding:16px 20px;
+}
+.map-radar {
+  width:160px; height:160px; border-radius:50%;
+  background:radial-gradient(circle, #0d1a0d 0%, #050f05 100%);
+  border:1px solid #1a2a1a;
+  position:relative; margin:12px auto 0;
+  display:flex; align-items:center; justify-content:center;
+}
+.map-ring { position:absolute; border-radius:50%; border:1px solid #1e2e1e; }
+.map-ring.r1{width:55%;height:55%} .map-ring.r2{width:80%;height:80%} .map-ring.r3{width:105%;height:105%;opacity:.4}
+.map-you-dot {
+  position:absolute; width:10px; height:10px; border-radius:50%;
+  background:var(--accent); border:2px solid #050f05;
+  top:50%; left:50%; transform:translate(-50%,-50%); z-index:2;
+}
+.map-you-lbl {
+  position:absolute; font-family:'Share Tech Mono',monospace;
+  font-size:7px; color:var(--accent); letter-spacing:1px;
+  top:calc(50% + 8px); left:calc(50% + 3px);
+}
+.map-pin { position:absolute; display:flex; flex-direction:column; align-items:center; gap:2px; }
+.map-pin-dot { width:7px; height:7px; border-radius:50%; border:1px solid #050f05; }
+.map-pin-dot.live{background:var(--online);animation:blink 1.5s infinite}
+.map-pin-dot.off{background:var(--text-disabled)}
+.map-pin-lbl {
+  font-family:'Share Tech Mono',monospace; font-size:7px; color:var(--text-primary);
+  background:#0d1a0dcc; padding:1px 3px; border-radius:2px; white-space:nowrap;
+}
+.map-radius-lbl {
+  font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-muted);
+  letter-spacing:1px; text-align:center; margin-top:10px;
+}
+
+/* Now Playing */
+.np-card {
+  background:var(--bg-card); border:1px solid var(--border-default);
+  border-radius:10px; padding:18px 20px;
+}
+.np-tag { font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--live); margin-bottom:8px; }
+.np-title { font-size:17px; font-weight:500; color:var(--text-primary); margin-bottom:2px; }
+.np-by { font-size:12px; color:var(--text-muted); margin-bottom:14px; }
+.np-btns { display:flex; gap:10px; margin-bottom:14px; }
+.btn-tune {
+  font-family:'Bebas Neue',sans-serif; font-size:14px; letter-spacing:2px;
+  color:var(--bg-primary); background:var(--accent); border:none;
+  padding:8px 20px; border-radius:5px; cursor:pointer;
+}
+.btn-share {
+  font-family:'Bebas Neue',sans-serif; font-size:14px; letter-spacing:2px;
+  color:var(--text-primary); background:transparent; border:1px solid var(--border-default);
+  padding:8px 20px; border-radius:5px; cursor:pointer;
+}
+.vol-row { display:flex; align-items:center; gap:10px; }
+.vol-lbl { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-muted); letter-spacing:1px; }
+.vol-track { flex:1; height:3px; background:var(--border-default); border-radius:3px; position:relative; }
+.vol-fill { width:70%; height:100%; background:var(--text-muted); border-radius:3px; }
+.vol-thumb {
+  position:absolute; right:30%; top:50%; transform:translate(50%,-50%);
+  width:12px; height:12px; border-radius:50%; background:var(--text-primary); border:2px solid var(--bg-primary);
+}
+
+/* Schedule */
+.sched-label { font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--text-muted); margin-bottom:12px; }
+.sched-row { display:flex; gap:12px; padding:6px 0; border-bottom:1px solid var(--border-subtle); }
+.sched-row:last-child{border-bottom:none}
+.sched-time { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-muted); letter-spacing:1px; min-width:36px; padding-top:1px; }
+.sched-show { font-size:12px; font-weight:500; color:var(--text-primary); }
+.sched-host { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-muted); letter-spacing:1px; margin-top:2px; }
+
+/* ══ MOBILE ══ */
+.mobile-row { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; }
+.phone-frame {
+  width:270px; flex-shrink:0;
+  background:#0a0a0a; border-radius:42px;
+  border:2px solid #2a2a2a; padding:10px;
+}
+.phone-notch {
+  width:88px; height:24px; background:#0a0a0a;
+  border-radius:0 0 14px 14px; margin:0 auto 6px;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+}
+.notch-cam{width:8px;height:8px;border-radius:50%;background:#181818;border:1.5px solid #222}
+.notch-pill{width:30px;height:4px;border-radius:4px;background:#181818}
+.phone-screen {
+  background:var(--bg-primary); border-radius:32px;
+  overflow:hidden; min-height:520px; display:flex; flex-direction:column;
+}
+.status-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 16px 4px;
+  font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-muted); letter-spacing:1px;
+}
+.signal-bars{display:flex;gap:1.5px;align-items:flex-end;height:8px}
+.signal-bar{width:3px;background:var(--text-muted);border-radius:1px}
+
+/* Tune screen */
+.tune-np-label {
+  font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--text-muted);
+  padding:12px 20px 4px; display:flex; align-items:center; justify-content:space-between;
+}
+.live-badge {
+  display:flex; align-items:center; gap:5px;
+  background:var(--live); border-radius:3px; padding:3px 8px;
+  font-family:'Share Tech Mono',monospace; font-size:7px; letter-spacing:2px; color:#fff;
+}
+.live-badge-dot{width:5px;height:5px;border-radius:50%;background:#fff;animation:blink 1.2s infinite}
+.tune-hero { text-align:center; padding:6px 20px 0; }
+.tune-freq-big { font-family:'Bebas Neue',sans-serif; font-size:86px; color:var(--accent); line-height:1; }
+.tune-fm { font-family:'Share Tech Mono',monospace; font-size:16px; color:var(--text-muted); letter-spacing:3px; }
+.tune-name { font-size:16px; font-weight:500; color:var(--text-primary); text-align:center; margin:4px 0 1px; }
+.tune-sub { font-family:'Share Tech Mono',monospace; font-size:7px; letter-spacing:1px; color:var(--text-muted); text-align:center; margin-bottom:10px; }
+.tune-wv { display:flex; align-items:center; justify-content:center; gap:2px; height:16px; margin-bottom:18px; }
+.tune-controls { display:flex; align-items:center; justify-content:center; gap:22px; margin-bottom:6px; }
+.ctrl-skip {
+  width:36px; height:36px; border-radius:50%;
+  background:var(--bg-card); border:1px solid var(--border-default);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-muted);
+}
+.ctrl-play {
+  width:60px; height:60px; border-radius:50%; background:var(--accent);
+  display:flex; align-items:center; justify-content:center; border:none;
+}
+.play-tri { width:0; height:0; border-style:solid; border-width:11px 0 11px 18px; border-color:transparent transparent transparent #0d0d0d; margin-left:3px; }
+.ctrl-heart {
+  width:36px; height:36px; border-radius:50%;
+  background:var(--bg-card); border:1px solid var(--border-default);
+  display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--text-muted);
+}
+.tune-listeners { font-family:'Share Tech Mono',monospace; font-size:7px; letter-spacing:1px; color:var(--text-muted); text-align:center; margin-bottom:14px; }
+.lock-notice {
+  margin:0 14px 12px; background:var(--bg-card); border:1px solid var(--border-default);
+  border-radius:8px; padding:10px 12px; display:flex; align-items:flex-start; gap:9px;
+}
+.lock-notice-icon { font-size:15px; line-height:1.2; color:var(--accent); }
+.lock-notice-title { font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:1px; color:var(--accent); margin-bottom:2px; }
+.lock-notice-sub { font-size:10px; color:var(--text-muted); }
+
+/* Nearby screen */
+.nearby-header { display:flex; align-items:baseline; justify-content:space-between; padding:14px 20px 14px; }
+.nearby-title { font-family:'Bebas Neue',sans-serif; font-size:30px; color:var(--text-primary); letter-spacing:2px; }
+.nearby-radius { font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:1px; color:var(--text-muted); }
+.nb-list { flex:1; display:flex; flex-direction:column; }
+.nb-row {
+  display:flex; align-items:center; gap:12px; padding:10px 20px;
+  border-bottom:1px solid var(--border-subtle);
+}
+.nb-row.active{background:#191600}
+.nb-freq { font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--accent); line-height:1; min-width:42px; }
+.nb-freq.dim{color:var(--text-muted)}
+.nb-info{flex:1}
+.nb-name{font-size:12px;font-weight:500;color:var(--text-primary)}
+.nb-name.dim{color:var(--text-muted)}
+.nb-loc{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;color:var(--text-muted);margin-top:1px}
+.nb-loc.dim{color:var(--text-disabled)}
+.pill{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;padding:3px 8px;border-radius:12px}
+.pill.live{background:#0a2a0a;color:var(--online);border:1px solid #1a4a1a}
+.pill.off{background:var(--bg-card);color:var(--text-disabled);border:1px solid var(--border-default)}
+
+/* Phone nav */
+.phone-nav { margin-top:auto; border-top:1px solid var(--border-default); background:var(--bg-surface); display:flex; }
+.pn-item { flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 0 12px; gap:3px; }
+.pn-item.active { border-top:1px solid var(--accent); margin-top:-1px; }
+.pn-item.active .pn-lbl{color:var(--accent)}
+.pn-icon{font-size:13px;color:var(--text-muted);line-height:1}
+.pn-item.active .pn-icon{color:var(--accent)}
+.pn-lbl{font-family:'Share Tech Mono',monospace;font-size:6px;letter-spacing:1.5px;color:var(--text-muted);text-transform:uppercase}
+
+/* ══ LOCK SCREEN ══ */
+.lock-wrap{display:flex;justify-content:center}
+.lock-phone { width:220px; background:#0a0a0a; border-radius:38px; border:2px solid #2a2a2a; padding:9px; }
+.lock-inner {
+  background:#0d0d12; border-radius:29px; overflow:hidden;
+  min-height:380px; display:flex; flex-direction:column; align-items:center;
+}
+.lock-status {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 16px 0; width:100%;
+  font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-muted); letter-spacing:1px;
+}
+.lock-time { font-family:'Bebas Neue',sans-serif; font-size:68px; color:var(--text-primary); letter-spacing:2px; text-align:center; margin:10px 0 0; line-height:1; }
+.lock-date { font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:2px; color:var(--text-muted); text-align:center; margin-bottom:20px; }
+.lock-media {
+  margin:0 12px; background:#1a1a22; border-radius:12px; padding:12px 14px; width:calc(100% - 24px);
+}
+.lock-media-tag { font-family:'Share Tech Mono',monospace; font-size:7px; letter-spacing:2px; color:var(--text-muted); margin-bottom:10px; }
+.lock-media-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.lock-album {
+  width:38px; height:38px; border-radius:7px; background:#1a1700; border:1px solid #2a2400;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.lock-album span { font-family:'Bebas Neue',sans-serif; font-size:12px; color:var(--accent); }
+.lock-track-name { font-size:11px; font-weight:500; color:var(--text-primary); }
+.lock-track-sub { font-family:'Share Tech Mono',monospace; font-size:7px; letter-spacing:1px; color:var(--text-muted); margin-top:2px; }
+.lock-ctrls { display:flex; align-items:center; justify-content:center; gap:22px; }
+.lock-btn { font-size:14px; color:var(--text-primary); background:none; border:none; cursor:pointer; }
+.lock-caption { font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:2px; color:var(--text-muted); text-align:center; text-transform:uppercase; margin-top:10px; }
+
+@media(max-width:720px){
+  .app-shell{grid-template-columns:1fr}
+  .left-col{border-right:none;border-bottom:1px solid var(--border-default)}
+  .app-topbar{grid-column:1}
+  .mobile-row{flex-direction:column;align-items:center}
+  .phone-frame{width:100%;max-width:310px}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="v-stamp">SWARA — CONCEPT UI — <b>VERSION 1.0 LOCKED</b> — MARCH 2026</div>
+
+<!-- DESKTOP -->
+<div class="sec-title">WEB BROWSER — DESKTOP VIEW</div>
+<div class="desktop-wrap">
+  <div class="desktop-chrome">
+    <div class="chrome-dot r"></div>
+    <div class="chrome-dot y"></div>
+    <div class="chrome-dot g"></div>
+    <div class="chrome-url"><span>swara.fm</span></div>
+  </div>
+  <div class="app-shell">
+    <div class="app-topbar">
+      <div class="app-brand">SWARA <span>// REGIONAL RADIO</span></div>
+      <div class="on-air-badge"><div class="on-air-dot"></div> ON AIR</div>
+    </div>
+
+    <!-- LEFT -->
+    <div class="left-col">
+      <div class="tuned-card">
+        <div class="card-label">NOW TUNED</div>
+        <div class="tuned-freq-row">
+          <div class="tuned-freq">98.7</div>
+          <div class="tuned-fm">FM</div>
+        </div>
+        <div class="tuned-meta">
+          <span>REGION <b>Depok, ID</b></span>
+          <span>RADIUS <b>15 km</b></span>
+          <span>LISTENERS <b>43</b></span>
+        </div>
+        <div class="waveform">
+          <div class="wv" style="height:7px;animation-delay:0s;animation-duration:.45s"></div>
+          <div class="wv" style="height:13px;animation-delay:.04s;animation-duration:.5s"></div>
+          <div class="wv" style="height:5px;animation-delay:.08s;animation-duration:.38s"></div>
+          <div class="wv" style="height:17px;animation-delay:.12s;animation-duration:.42s"></div>
+          <div class="wv" style="height:9px;animation-delay:.16s;animation-duration:.55s"></div>
+          <div class="wv" style="height:15px;animation-delay:.2s;animation-duration:.4s"></div>
+          <div class="wv" style="height:19px;animation-delay:.24s;animation-duration:.35s"></div>
+          <div class="wv" style="height:11px;animation-delay:.28s;animation-duration:.48s"></div>
+          <div class="wv" style="height:7px;animation-delay:.32s;animation-duration:.44s"></div>
+          <div class="wv" style="height:15px;animation-delay:.36s;animation-duration:.38s"></div>
+          <div class="wv" style="height:17px;animation-delay:.4s;animation-duration:.5s"></div>
+          <div class="wv" style="height:5px;animation-delay:.44s;animation-duration:.42s"></div>
+          <div class="wv" style="height:13px;animation-delay:.48s;animation-duration:.46s"></div>
+          <div class="wv" style="height:9px;animation-delay:.52s;animation-duration:.4s"></div>
+          <div class="wv" style="height:7px;animation-delay:.56s;animation-duration:.52s"></div>
+          <div class="wv" style="height:17px;animation-delay:.6s;animation-duration:.36s"></div>
+          <div class="wv" style="height:11px;animation-delay:.64s;animation-duration:.44s"></div>
+          <div class="wv" style="height:15px;animation-delay:.68s;animation-duration:.4s"></div>
+        </div>
+      </div>
+
+      <div class="channels-label">NEARBY CHANNELS</div>
+      <div class="ch-list">
+        <div class="ch-row active">
+          <div class="ch-freq">98.7</div>
+          <div class="ch-info">
+            <div class="ch-name"><span class="live-dot-sm"></span>Kopi Pagi FM</div>
+            <div class="ch-sub">Depok Tengah — 2.1 km</div>
+          </div>
+          <div class="ch-stat"><span class="count">43</span><span class="word">listening</span></div>
+        </div>
+        <div class="ch-row">
+          <div class="ch-freq">101.2</div>
+          <div class="ch-info">
+            <div class="ch-name"><span class="live-dot-sm"></span>Berita Malam</div>
+            <div class="ch-sub">Margonda — 4.8 km</div>
+          </div>
+          <div class="ch-stat"><span class="count">12</span><span class="word">listening</span></div>
+        </div>
+        <div class="ch-row">
+          <div class="ch-freq dim">105.5</div>
+          <div class="ch-info">
+            <div class="ch-name dim">Indie Sore</div>
+            <div class="ch-sub">Cinere — 9.3 km</div>
+          </div>
+          <div class="ch-stat offline">— offline</div>
+        </div>
+        <div class="ch-row">
+          <div class="ch-freq">107.0</div>
+          <div class="ch-info">
+            <div class="ch-name"><span class="live-dot-sm"></span>Ngobrol Subuh</div>
+            <div class="ch-sub">Limo — 11.7 km</div>
+          </div>
+          <div class="ch-stat"><span class="count">8</span><span class="word">listening</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-col">
+      <div class="map-card">
+        <div class="card-label">COVERAGE MAP</div>
+        <div class="map-radar">
+          <div class="map-ring r1"></div>
+          <div class="map-ring r2"></div>
+          <div class="map-ring r3"></div>
+          <div class="map-you-dot"></div>
+          <div class="map-you-lbl">YOU</div>
+          <div class="map-pin" style="top:28%;left:54%;">
+            <div class="map-pin-dot live"></div>
+            <div class="map-pin-lbl">98.7</div>
+          </div>
+          <div class="map-pin" style="top:16%;left:63%;">
+            <div class="map-pin-dot live"></div>
+            <div class="map-pin-lbl">107.0</div>
+          </div>
+          <div class="map-pin" style="top:56%;left:63%;">
+            <div class="map-pin-dot live"></div>
+            <div class="map-pin-lbl">101.2</div>
+          </div>
+          <div class="map-pin" style="top:73%;left:44%;">
+            <div class="map-pin-dot off"></div>
+            <div class="map-pin-lbl" style="color:var(--text-disabled)">105.5</div>
+          </div>
+        </div>
+        <div class="map-radius-lbl">15 km radius</div>
+      </div>
+
+      <div class="np-card">
+        <div class="np-tag">NOW PLAYING</div>
+        <div class="np-title">Morning Talk — Eps 34</div>
+        <div class="np-by">by Raka &amp; Dina</div>
+        <div class="np-btns">
+          <button class="btn-tune">TUNE IN</button>
+          <button class="btn-share">SHARE</button>
+        </div>
+        <div class="vol-row">
+          <div class="vol-lbl">VOL</div>
+          <div class="vol-track">
+            <div class="vol-fill"></div>
+            <div class="vol-thumb"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sched-label">TODAY'S SCHEDULE</div>
+        <div class="sched-row">
+          <div class="sched-time">06:00</div>
+          <div><div class="sched-show">Morning Talk</div><div class="sched-host">Raka &amp; Dina</div></div>
+        </div>
+        <div class="sched-row">
+          <div class="sched-time">09:00</div>
+          <div><div class="sched-show">Kopi Sambil Kerja</div><div class="sched-host">Solo show — Bimo</div></div>
+        </div>
+        <div class="sched-row">
+          <div class="sched-time">12:00</div>
+          <div><div class="sched-show">Siang Santai</div><div class="sched-host">Community call-in</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- MOBILE -->
+<div class="sec-title">MOBILE BROWSER — KEY SCREENS</div>
+<div class="mobile-row">
+
+  <!-- TUNE -->
+  <div>
+    <div class="phone-frame">
+      <div class="phone-notch"><div class="notch-cam"></div><div class="notch-pill"></div><div class="notch-cam"></div></div>
+      <div class="phone-screen">
+        <div class="status-bar">
+          <span>09:41</span>
+          <span style="color:var(--accent);font-size:8px;letter-spacing:1px;">98.7 FM</span>
+          <div class="signal-bars">
+            <div class="signal-bar" style="height:3px"></div>
+            <div class="signal-bar" style="height:5px"></div>
+            <div class="signal-bar" style="height:7px"></div>
+          </div>
+        </div>
+
+        <div class="tune-np-label">
+          NOW PLAYING
+          <div class="live-badge"><div class="live-badge-dot"></div>LIVE</div>
+        </div>
+
+        <div class="tune-hero">
+          <div class="tune-freq-big">98.7</div>
+          <div class="tune-fm">FM</div>
+        </div>
+        <div class="tune-name">Kopi Pagi FM</div>
+        <div class="tune-sub">Depok Tengah · 2.1 km away</div>
+
+        <div class="tune-wv">
+          <div class="wv" style="height:5px;animation-delay:0s;animation-duration:.45s"></div>
+          <div class="wv" style="height:11px;animation-delay:.05s;animation-duration:.5s"></div>
+          <div class="wv" style="height:7px;animation-delay:.1s;animation-duration:.38s"></div>
+          <div class="wv" style="height:15px;animation-delay:.15s;animation-duration:.42s"></div>
+          <div class="wv" style="height:9px;animation-delay:.2s;animation-duration:.55s"></div>
+          <div class="wv" style="height:13px;animation-delay:.25s;animation-duration:.4s"></div>
+          <div class="wv" style="height:5px;animation-delay:.3s;animation-duration:.35s"></div>
+          <div class="wv" style="height:11px;animation-delay:.35s;animation-duration:.48s"></div>
+          <div class="wv" style="height:15px;animation-delay:.4s;animation-duration:.44s"></div>
+          <div class="wv" style="height:7px;animation-delay:.45s;animation-duration:.4s"></div>
+        </div>
+
+        <div class="tune-controls">
+          <div class="ctrl-skip">-15</div>
+          <div class="ctrl-play"><div class="play-tri"></div></div>
+          <div class="ctrl-heart">♡</div>
+        </div>
+        <div class="tune-listeners">43 people tuned in nearby</div>
+
+        <div class="lock-notice">
+          <div class="lock-notice-icon">🔒</div>
+          <div>
+            <div class="lock-notice-title">Lock screen controls active</div>
+            <div class="lock-notice-sub">Audio keeps playing in background</div>
+          </div>
+        </div>
+
+        <div class="phone-nav">
+          <div class="pn-item active"><div class="pn-icon">📻</div><div class="pn-lbl">TUNE</div></div>
+          <div class="pn-item"><div class="pn-icon">📡</div><div class="pn-lbl">NEARBY</div></div>
+          <div class="pn-item"><div class="pn-icon">🎙</div><div class="pn-lbl">BROADCAST</div></div>
+          <div class="pn-item"><div class="pn-icon">⚙</div><div class="pn-lbl">SETTINGS</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="lock-caption" style="margin-top:10px;">TUNE IN SCREEN</div>
+  </div>
+
+  <!-- NEARBY -->
+  <div>
+    <div class="phone-frame">
+      <div class="phone-notch"><div class="notch-cam"></div><div class="notch-pill"></div><div class="notch-cam"></div></div>
+      <div class="phone-screen">
+        <div class="status-bar">
+          <span>09:41</span>
+          <span style="color:var(--accent);font-size:8px;letter-spacing:1px;">98.7 FM</span>
+          <div class="signal-bars">
+            <div class="signal-bar" style="height:3px"></div>
+            <div class="signal-bar" style="height:5px"></div>
+            <div class="signal-bar" style="height:7px"></div>
+          </div>
+        </div>
+        <div class="nearby-header">
+          <div class="nearby-title">NEARBY</div>
+          <div class="nearby-radius">within 15 km</div>
+        </div>
+        <div class="nb-list">
+          <div class="nb-row active">
+            <div class="nb-freq">98.7</div>
+            <div class="nb-info"><div class="nb-name">Kopi Pagi FM</div><div class="nb-loc">Depok Tengah · 2.1 km</div></div>
+            <div class="pill live">LIVE</div>
+          </div>
+          <div class="nb-row">
+            <div class="nb-freq">101.2</div>
+            <div class="nb-info"><div class="nb-name">Berita Malam</div><div class="nb-loc">Margonda · 4.8 km</div></div>
+            <div class="pill live">LIVE</div>
+          </div>
+          <div class="nb-row">
+            <div class="nb-freq dim">105.5</div>
+            <div class="nb-info"><div class="nb-name dim">Indie Sore</div><div class="nb-loc dim">Cinere · 9.3 km</div></div>
+            <div class="pill off">OFF</div>
+          </div>
+          <div class="nb-row">
+            <div class="nb-freq">107.0</div>
+            <div class="nb-info"><div class="nb-name">Ngobrol Subuh</div><div class="nb-loc">Limo · 11.7 km</div></div>
+            <div class="pill live">LIVE</div>
+          </div>
+          <div class="nb-row">
+            <div class="nb-freq dim">88.3</div>
+            <div class="nb-info"><div class="nb-name dim">Senja Radio</div><div class="nb-loc dim">Sawangan · 14.1 km</div></div>
+            <div class="pill off">OFF</div>
+          </div>
+        </div>
+        <div class="phone-nav">
+          <div class="pn-item"><div class="pn-icon">📻</div><div class="pn-lbl">TUNE</div></div>
+          <div class="pn-item active"><div class="pn-icon">📡</div><div class="pn-lbl">NEARBY</div></div>
+          <div class="pn-item"><div class="pn-icon">🎙</div><div class="pn-lbl">BROADCAST</div></div>
+          <div class="pn-item"><div class="pn-icon">⚙</div><div class="pn-lbl">SETTINGS</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="lock-caption" style="margin-top:10px;">NEARBY CHANNELS</div>
+  </div>
+
+</div>
+
+
+<!-- LOCK SCREEN -->
+<div class="sec-title">LOCK SCREEN — MEDIA SESSION API</div>
+<div class="lock-wrap">
+  <div class="lock-phone">
+    <div class="lock-inner">
+      <div class="lock-status">
+        <span>09:41</span>
+        <div class="signal-bars">
+          <div class="signal-bar" style="height:3px;background:var(--text-muted)"></div>
+          <div class="signal-bar" style="height:5px;background:var(--text-muted)"></div>
+          <div class="signal-bar" style="height:7px;background:var(--text-muted)"></div>
+          <div class="signal-bar" style="height:7px;background:var(--text-muted)"></div>
+        </div>
+      </div>
+      <div class="lock-time">09:41</div>
+      <div class="lock-date">FRIDAY, MARCH 13</div>
+      <div class="lock-media">
+        <div class="lock-media-tag">SWARA — PLAYING IN BACKGROUND</div>
+        <div class="lock-media-row">
+          <div class="lock-album"><span>98.7</span></div>
+          <div>
+            <div class="lock-track-name">Morning Talk — Ep 34</div>
+            <div class="lock-track-sub">Kopi Pagi FM · Raka &amp; Dina</div>
+          </div>
+        </div>
+        <div class="lock-ctrls">
+          <button class="lock-btn">⏮</button>
+          <button class="lock-btn">⏸</button>
+          <button class="lock-btn">⏭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="lock-caption" style="margin-top:10px;">LOCK SCREEN (MEDIA SESSION API)</div>
+
+
+<div class="v-stamp" style="margin-top:56px;margin-bottom:0;">
+  SWARA — UI SPEC <b>V1.0 LOCKED</b> · DO NOT MODIFY WITHOUT VERSION BUMP
+</div>
+
+</div>
+</body>
+</html>
