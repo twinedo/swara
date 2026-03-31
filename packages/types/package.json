@@ -1,0 +1,19 @@
+{
+  "name": "@swara/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc -p tsconfig.json --noEmit",
+    "generate:openapi": "bun run ./scripts/generate-openapi-types.mjs"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "openapi-typescript": "^7.10.1",
+    "typescript": "5.9.2"
+  }
+}
