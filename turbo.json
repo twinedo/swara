@@ -12,97 +12,43 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        ".env*",
-        "src/**"
-      ],
+      "dependsOn": ["^build"],
       "outputs": [
-        ".next/**",
-        "!.next/cache/**",
-        "target/release/swara-api"
+        "dist/**",
+        "build/**",
+        ".svelte-kit/output/**",
+        "target/release/**"
       ],
-      "env": [
-        "DATABASE_URL"
-      ]
+      "env": ["DATABASE_URL"]
     },
-    "inputs": [
-      "src/**",
-      "Cargo.toml",
-      "Cargo.lock",
-      "sqlx-data.json"
-    ],
     "lint": {
-      "dependsOn": [
-        "^lint"
-      ]
+      "dependsOn": ["^lint"]
     },
     "check-types": {
-      "dependsOn": [
-        "^check-types"
-      ]
+      "dependsOn": ["^check-types"]
+    },
+    "check": {
+      "dependsOn": ["^check"]
     },
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "preview": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URL"]
+    },
+    "migrate": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "migrate:revert": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
     }
-  },
-  "dev": {
-    "dependsOn": [
-      "^build"
-    ],
-    "persistent": true,
-    "cache": false,
-    "env": [
-      "DATABASE_URL",
-      "REDIS_URL",
-      "LIVEKIT_URL",
-      "LIVEKIT_API_KEY",
-      "LIVEKIT_API_SECRET",
-      "JWT_SECRET",
-      "PORT"
-    ]
-  },
-  "test": {
-    "dependsOn": [
-      "^build"
-    ],
-    "inputs": [
-      "src/**",
-      "tests/**",
-      "Cargo.toml",
-      "sqlx-data.json"
-    ],
-    "env": [
-      "DATABASE_URL"
-    ]
-  },
-  "lint": {
-    "inputs": [
-      "src/**",
-      "Cargo.toml"
-    ]
-  },
-  "check": {
-    "inputs": [
-      "src/**",
-      "Cargo.toml",
-      "Cargo.lock"
-    ]
-  },
-  "migrate": {
-    "cache": false,
-    "env": [
-      "DATABASE_URL"
-    ]
-  },
-  "migrate:revert": {
-    "cache": false,
-    "env": [
-      "DATABASE_URL"
-    ]
   }
 }
