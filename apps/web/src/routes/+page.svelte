@@ -426,23 +426,15 @@
 
 <div class="mobile-view">
   <section class="mobile-shell">
-    <div class="status-bar">
-      <span>09:41</span>
-      <span class="status-freq">{featuredChannel ? formatFrequency(featuredChannel.frequency) : "--.-"} FM</span>
-      <div class="signal-bars">
-        <div class="signal-bar" style="height:3px"></div>
-        <div class="signal-bar" style="height:5px"></div>
-        <div class="signal-bar" style="height:7px"></div>
+    <div class="tune-mobile-header">
+      <div class="tune-np-label">
+        NOW PLAYING
+        <div class="live-badge"><div class="live-badge-dot"></div>LIVE</div>
       </div>
     </div>
 
     <div class="tune-screen">
       <div class="tune-stack">
-        <div class="tune-np-label">
-          NOW PLAYING
-          <div class="live-badge"><div class="live-badge-dot"></div>LIVE</div>
-        </div>
-
         <div class="tune-hero">
           <div class="tune-freq-big">{featuredChannel ? formatFrequency(featuredChannel.frequency) : "--.-"}</div>
           <div class="tune-fm">FM</div>
@@ -1005,12 +997,12 @@
   }
 
   .mobile-view {
-    min-height: 100vh;
+    height: calc(100svh - 104px - var(--sab));
     display: block;
   }
 
   .mobile-shell {
-    min-height: 100vh;
+    height: 100%;
     display: flex;
     flex-direction: column;
     background: var(--bg-primary);
@@ -1025,48 +1017,30 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 12px 0 20px;
+    padding: 0;
   }
 
   .tune-stack {
     width: 100%;
     max-width: 360px;
     margin: 0 auto;
-  }
-
-  .status-bar {
+    min-height: 100%;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: calc(8px + var(--sat)) 16px 4px;
-    font-family: "Share Tech Mono", monospace;
-    font-size: 8px;
-    color: var(--text-muted);
-    letter-spacing: 1px;
+    flex-direction: column;
+    justify-content: center;
   }
 
-  .status-freq {
-    color: var(--accent);
-    font-size: 8px;
-    letter-spacing: 1px;
-  }
-
-  .signal-bars {
-    display: flex;
-    gap: 1.5px;
-    align-items: flex-end;
-    height: 8px;
-  }
-
-  .signal-bar {
-    width: 3px;
-    background: var(--text-muted);
-    border-radius: 1px;
+  .tune-mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(13, 13, 13, 0.92);
+    backdrop-filter: blur(18px);
   }
 
   .tune-np-label {
     font-family: "Share Tech Mono", monospace;
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 2px;
     color: var(--text-muted);
     padding: 12px 20px 4px;
@@ -1083,7 +1057,7 @@
     border-radius: 3px;
     padding: 3px 8px;
     font-family: "Share Tech Mono", monospace;
-    font-size: 7px;
+    font-size: 12px;
     letter-spacing: 2px;
     color: #fff;
   }
@@ -1126,7 +1100,7 @@
 
   .tune-sub {
     font-family: "Share Tech Mono", monospace;
-    font-size: 7px;
+    font-size: 10px;
     letter-spacing: 1px;
     color: var(--text-muted);
     text-align: center;
@@ -1192,7 +1166,7 @@
 
   .tune-listeners {
     font-family: "Share Tech Mono", monospace;
-    font-size: 7px;
+    font-size: 10px;
     letter-spacing: 1px;
     color: var(--text-muted);
     text-align: center;
@@ -1220,7 +1194,7 @@
 
   .lock-notice-title {
     font-family: "Share Tech Mono", monospace;
-    font-size: 8px;
+    font-size: 12px;
     letter-spacing: 1px;
     color: var(--accent);
     margin-bottom: 2px;
@@ -1228,7 +1202,7 @@
   }
 
   .lock-notice-sub {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
   }
 
