@@ -91,7 +91,7 @@
   }
 </script>
 
-<div class="page-shell settings-shell">
+<div class:guest-layout={!$user} class="page-shell settings-shell">
   <section class="panel account-card">
     <span class="section-label">Account</span>
 
@@ -171,30 +171,34 @@
       </span>
     </div>
 
-    <div class="meta-row">
-      <span class="meta-label">Singgah</span>
-      <span class="meta-value mono">
-        {#if $manualLocation}
-          {$manualLocation.lat.toFixed(4)}, {$manualLocation.lng.toFixed(4)}
-        {:else}
-          Not set
-        {/if}
-      </span>
-    </div>
+    {#if $user}
+      <div class="meta-row">
+        <span class="meta-label">Singgah</span>
+        <span class="meta-value mono">
+          {#if $manualLocation}
+            {$manualLocation.lat.toFixed(4)}, {$manualLocation.lng.toFixed(4)}
+          {:else}
+            Not set
+          {/if}
+        </span>
+      </div>
 
-    <div class="preset-grid">
-      {#each singgahPresets as preset}
-        <button class="ghost-button mini-button" type="button" on:click={() => singgah(preset)}>
-          {preset.label}
+      <div class="preset-grid">
+        {#each singgahPresets as preset}
+          <button class="ghost-button mini-button" type="button" on:click={() => singgah(preset)}>
+            {preset.label}
+          </button>
+        {/each}
+        <button class="ghost-button mini-button" type="button" on:click={clearSinggah}>
+          Clear
         </button>
-      {/each}
-      <button class="ghost-button mini-button" type="button" on:click={clearSinggah}>
-        Clear
-      </button>
-    </div>
+      </div>
 
-    {#if !$isPro}
-      <p class="status-copy">Singgah presets only take effect for Pro listeners.</p>
+      {#if !$isPro}
+        <p class="status-copy">Singgah presets only take effect for Pro listeners.</p>
+      {/if}
+    {:else}
+      <p class="status-copy">Sign in first to manage Singgah presets.</p>
     {/if}
   </section>
 
@@ -309,6 +313,18 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       align-items: start;
       padding: 24px;
+    }
+
+    .settings-shell.guest-layout {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(100vh - 56px - var(--sat) - 28px);
+    }
+
+    .settings-shell.guest-layout > section {
+      width: min(100%, 720px);
     }
   }
 </style>
