@@ -8,6 +8,7 @@
   export let channels: Channel[] = [];
   export let radiusMetres = 15_000;
   export let allowSinggah = false;
+  export let compact = false;
 
   const dispatch = createEventDispatcher<{ singgah: LatLng }>();
   const viewCenter = 50;
@@ -92,7 +93,7 @@
     : [];
 </script>
 
-<div class="map-card panel">
+<div class:compact class="map-card panel">
   <div class="header">
     <span class="section-label">Coverage Map</span>
     <span class="radius mono">{Math.round(radiusMetres / 1000)} km radius</span>
@@ -106,7 +107,7 @@
     disabled={!allowSinggah}
     on:click={handleMapClick}
   >
-    <svg class="radar" viewBox="0 0 100 100" role="img" aria-hidden="true">
+    <svg class:compact class="radar" viewBox="0 0 100 100" role="img" aria-hidden="true">
       <circle class="ring outer" cx="50" cy="50" r="38"></circle>
       <circle class="ring" cx="50" cy="50" r="28"></circle>
       <circle class="ring" cx="50" cy="50" r="18"></circle>
@@ -167,6 +168,15 @@
       radial-gradient(circle at center, rgba(16, 37, 14, 0.95), rgba(6, 12, 8, 0.98)),
       linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent);
     border: 1px solid rgba(97, 255, 151, 0.08);
+  }
+
+  .map-card.compact {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .radar.compact {
+    min-height: 176px;
   }
 
   .map-trigger.interactive .radar {
