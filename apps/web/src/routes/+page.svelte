@@ -7,7 +7,7 @@
     fetchSchedule,
     startListening,
   } from "$lib/api/client";
-  import { joinAsListener, leaveRoom } from "$lib/livekit";
+  import { joinAsListener, leaveRoom, setListenerVolume } from "$lib/livekit";
   import { clearMediaSession, setMediaSession, setPlaybackState } from "$lib/mediaSession";
   import {
     activeChannel,
@@ -20,7 +20,6 @@
     setNearbyChannels,
   } from "$lib/stores/channel";
   import { activeLocation, coverageRadius, locationError } from "$lib/stores/location";
-  import { isAuthenticated } from "$lib/stores/user";
   import { formatDistance, formatFrequency, getCurrentShow } from "$lib/utils/format";
 
   const fallbackChannels: Channel[] = [
@@ -90,6 +89,7 @@
   let errorMessage: string | null = null;
   let lastLocationKey = "";
   let lastScheduleChannelId = "";
+  let volumeLevel = 72;
 
   async function loadNearby() {
     if (!$activeLocation) {
@@ -139,12 +139,6 @@
 
     if (channel.status !== "live") {
       playbackState.set("idle");
-      return;
-    }
-
-    if (!get(isAuthenticated)) {
-      playbackState.set("error");
-      errorMessage = "Sign in first. The current API requires an authenticated listener token.";
       return;
     }
 
@@ -218,9 +212,15 @@
   }
 
   function tunePrimary(): void {
-    if (displayChannel) {
-      void tune(displayChannel);
+    if (featuredChannel) {
+      void tune(featuredChannel);
     }
+  }
+
+  function handleVolumeInput(event: Event): void {
+    const target = event.currentTarget as HTMLInputElement;
+    volumeLevel = Number(target.value);
+    setListenerVolume(volumeLevel / 100);
   }
 
   $: if ($activeLocation) {
@@ -234,6 +234,7 @@
   $: if ($activeChannel?.id) {
     if ($activeChannel.id !== lastScheduleChannelId) {
       lastScheduleChannelId = $activeChannel.id;
+      activeSchedule.set([]);
       void loadSchedule($activeChannel.id);
     }
   } else {
@@ -242,44 +243,62 @@
 
   $: currentShow = getCurrentShow($activeSchedule);
   $: displayChannels = $nearbyChannels.length > 0 ? $nearbyChannels : fallbackChannels;
-  $: displayChannel = $activeChannel ?? displayChannels[0] ?? null;
+  $: featuredChannel = displayChannels.find((channel) => channel.status === "live") ?? displayChannels[0] ?? null;
+  $: activeDesktopChannel = $activeChannel;
   $: mapChannels = displayChannels.slice(0, 4);
   $: scheduleRows = $activeSchedule.length > 0 ? $activeSchedule : fallbackSchedule;
-  $: primaryLabel = primaryActionLabel($playbackState, displayChannel);
+  $: primaryLabel = primaryActionLabel($playbackState, featuredChannel);
+  $: isDesktopPlaying = $playbackState === "playing" && !!activeDesktopChannel;
+  $: nowPlayingTitle = currentShow?.showName ?? (activeDesktopChannel ? `${activeDesktopChannel.name} Live Feed` : "Morning Talk - Eps 34");
+  $: nowPlayingBy = currentShow?.hostName
+    ? `by ${currentShow.hostName}`
+    : activeDesktopChannel
+      ? `${activeDesktopChannel.owner.username} - ${channelDistance(activeDesktopChannel)} away`
+      : "by Raka & Dina";
 </script>
 
 <div class="desktop-view">
   <section class="desktop-wrap">
-    <div class="desktop-chrome">
-      <div class="chrome-dot r"></div>
-      <div class="chrome-dot y"></div>
-      <div class="chrome-dot g"></div>
-      <div class="chrome-url"><span>swara.fm</span></div>
-    </div>
-
     <div class="app-shell">
-      <div class="app-topbar">
-        <div class="app-brand">SWARA <span>// REGIONAL RADIO</span></div>
-        <div class="on-air-badge"><div class="on-air-dot"></div> ON AIR</div>
-      </div>
-
       <div class="left-col">
         <div class="tuned-card">
-          <div class="card-label">NOW TUNED</div>
-          <div class="tuned-freq-row">
-            <div class="tuned-freq">{displayChannel ? formatFrequency(displayChannel.frequency) : "--.-"}</div>
-            <div class="tuned-fm">FM</div>
-          </div>
-          <div class="tuned-meta">
-            <span>REGION <b>{displayChannel ? displayChannel.owner.username : "Depok, ID"}</b></span>
-            <span>RADIUS <b>{Math.round($coverageRadius / 1000)} km</b></span>
-            <span>LISTENERS <b>{displayChannel ? displayChannel.listenerCount : 0}</b></span>
-          </div>
-          <div class="waveform" aria-hidden="true">
-            {#each desktopWave as bar, index}
-              <div class="wv" style={waveStyle(bar, index)}></div>
-            {/each}
-          </div>
+          {#if activeDesktopChannel}
+            <div class="card-label">NOW TUNED</div>
+            <div class="tuned-freq-row">
+              <div class="tuned-freq">{formatFrequency(activeDesktopChannel.frequency)}</div>
+              <div class="tuned-fm">FM</div>
+            </div>
+            <div class="tuned-meta">
+              <span>REGION <b>{activeDesktopChannel.owner.username}</b></span>
+              <span>RADIUS <b>{Math.round($coverageRadius / 1000)} km</b></span>
+              <span>LISTENERS <b>{activeDesktopChannel.listenerCount}</b></span>
+            </div>
+            <div class="waveform" aria-hidden="true">
+              {#each desktopWave as bar, index}
+                <div class="wv" style={waveStyle(bar, index)}></div>
+              {/each}
+            </div>
+          {:else}
+            <div class="card-label">READY TO TUNE</div>
+            <div class="tuned-freq-row idle">
+              <div class="tuned-freq placeholder">--.-</div>
+              <div class="tuned-fm">FM</div>
+            </div>
+            <div class="tuned-meta">
+              <span>REGION <b>{$activeLocation ? "Area Locked" : "Waiting for GPS"}</b></span>
+              <span>RADIUS <b>{Math.round($coverageRadius / 1000)} km</b></span>
+              <span>STATIONS <b>{displayChannels.length}</b></span>
+            </div>
+            <div class="idle-copy">
+              Pick a nearby station to start listening. Nothing is playing yet.
+            </div>
+            <div class="idle-actions">
+              <a class="btn-share" href="/nearby">BROWSE</a>
+              <button class="btn-tune" type="button" disabled={!featuredChannel} on:click={tunePrimary}>
+                TUNE FEATURED
+              </button>
+            </div>
+          {/if}
         </div>
 
         <div class="channels-label">NEARBY CHANNELS</div>
@@ -349,22 +368,43 @@
         </div>
 
         <div class="np-card">
-          <div class="np-tag">NOW PLAYING</div>
-          <div class="np-title">{currentShow?.showName ?? "Morning Talk - Eps 34"}</div>
-          <div class="np-by">by {currentShow?.hostName ?? "Raka & Dina"}</div>
-          <div class="np-btns">
-            <button class="btn-tune" type="button" disabled={!displayChannel} on:click={tunePrimary}>
-              {primaryLabel}
-            </button>
-            <button class="btn-share" type="button">SHARE</button>
-          </div>
-          <div class="vol-row">
-            <div class="vol-lbl">VOL</div>
-            <div class="vol-track">
-              <div class="vol-fill"></div>
-              <div class="vol-thumb"></div>
+          {#if activeDesktopChannel}
+            <div class="np-tag">NOW PLAYING</div>
+            <div class="np-title">{nowPlayingTitle}</div>
+            <div class="np-by">{nowPlayingBy}</div>
+            <div class="np-btns">
+              <button class="btn-tune" type="button" disabled={!featuredChannel} on:click={tunePrimary}>
+                {primaryLabel}
+              </button>
+              <button class="btn-share" type="button">SHARE</button>
             </div>
-          </div>
+            <div class="vol-row">
+              <div class="vol-lbl">VOL</div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={volumeLevel}
+                class="vol-slider"
+                style={`--volume-level:${volumeLevel}%`}
+                aria-label="Volume"
+                on:input={handleVolumeInput}
+              />
+            </div>
+          {:else}
+            <div class="np-tag idle-tag">LISTENING DECK</div>
+            <div class="np-title idle-title">Choose a station to go live with the room audio feed.</div>
+            <div class="np-by">
+              Nearby stations stay browseable until you explicitly tune one. Broadcast and settings are available from the top menu.
+            </div>
+            <div class="np-btns">
+              <button class="btn-tune" type="button" disabled={!featuredChannel} on:click={tunePrimary}>
+                {featuredChannel ? `TUNE ${formatFrequency(featuredChannel.frequency)}` : "TUNE IN"}
+              </button>
+              <a class="btn-share link-button" href="/broadcast">BROADCAST</a>
+            </div>
+          {/if}
         </div>
 
         <div>
@@ -388,7 +428,7 @@
   <section class="mobile-shell">
     <div class="status-bar">
       <span>09:41</span>
-      <span class="status-freq">{displayChannel ? formatFrequency(displayChannel.frequency) : "--.-"} FM</span>
+      <span class="status-freq">{featuredChannel ? formatFrequency(featuredChannel.frequency) : "--.-"} FM</span>
       <div class="signal-bars">
         <div class="signal-bar" style="height:3px"></div>
         <div class="signal-bar" style="height:5px"></div>
@@ -404,12 +444,12 @@
         </div>
 
         <div class="tune-hero">
-          <div class="tune-freq-big">{displayChannel ? formatFrequency(displayChannel.frequency) : "--.-"}</div>
+          <div class="tune-freq-big">{featuredChannel ? formatFrequency(featuredChannel.frequency) : "--.-"}</div>
           <div class="tune-fm">FM</div>
         </div>
-        <div class="tune-name">{displayChannel?.name ?? "Kopi Pagi FM"}</div>
+        <div class="tune-name">{featuredChannel?.name ?? "Kopi Pagi FM"}</div>
         <div class="tune-sub">
-          {displayChannel ? `${channelLocation(displayChannel)} away` : "Depok Tengah - 2.1 km away"}
+          {featuredChannel ? `${channelLocation(featuredChannel)} away` : "Depok Tengah - 2.1 km away"}
         </div>
 
         <div class="tune-wv" aria-hidden="true">
@@ -424,14 +464,14 @@
             type="button"
             class="ctrl-play"
             aria-label="Tune in"
-            disabled={!displayChannel}
+            disabled={!featuredChannel}
             on:click={tunePrimary}
           >
             <div class="play-tri"></div>
           </button>
           <div class="ctrl-heart">FAV</div>
         </div>
-        <div class="tune-listeners">{(displayChannel?.listenerCount ?? 0).toString()} people tuned in nearby</div>
+        <div class="tune-listeners">{(featuredChannel?.listenerCount ?? 0).toString()} people tuned in nearby</div>
 
         <div class="lock-notice">
           <div class="lock-notice-icon">LOCK</div>
@@ -452,53 +492,9 @@
 
   .desktop-wrap {
     margin: 24px;
-    background: #000;
     border-radius: 14px;
     border: 2px solid #2a2a2a;
     overflow: hidden;
-  }
-
-  .desktop-chrome {
-    background: #0a0a0a;
-    padding: 9px 14px;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    border-bottom: 1px solid #1a1a1a;
-  }
-
-  .chrome-dot {
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-  }
-
-  .chrome-dot.r {
-    background: #e84a4a;
-  }
-
-  .chrome-dot.y {
-    background: #e8c84a;
-  }
-
-  .chrome-dot.g {
-    background: #4ae87a;
-  }
-
-  .chrome-url {
-    flex: 1;
-    background: #161616;
-    border-radius: 5px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-    margin-left: 8px;
-  }
-
-  .chrome-url span {
-    font-size: 10px;
-    color: var(--text-muted);
   }
 
   .app-shell {
@@ -506,47 +502,6 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     min-height: 580px;
-  }
-
-  .app-topbar {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 28px;
-    border-bottom: 1px solid var(--border-default);
-  }
-
-  .app-brand {
-    font-family: "Bebas Neue", sans-serif;
-    font-size: 20px;
-    color: var(--accent);
-    letter-spacing: 2px;
-  }
-
-  .app-brand span {
-    color: var(--text-muted);
-    font-size: 14px;
-    letter-spacing: 3px;
-    margin-left: 4px;
-  }
-
-  .on-air-badge {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-family: "Share Tech Mono", monospace;
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: var(--live);
-  }
-
-  .on-air-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--live);
-    animation: blink 1.2s infinite;
   }
 
   .left-col {
@@ -586,11 +541,19 @@
     margin-bottom: 8px;
   }
 
+  .tuned-freq-row.idle {
+    margin-bottom: 12px;
+  }
+
   .tuned-freq {
     font-family: "Bebas Neue", sans-serif;
     font-size: 64px;
     color: var(--accent);
     line-height: 1;
+  }
+
+  .tuned-freq.placeholder {
+    color: rgba(232, 200, 74, 0.55);
   }
 
   .tuned-fm {
@@ -613,6 +576,21 @@
   .tuned-meta b {
     color: var(--text-primary);
     font-weight: 400;
+  }
+
+  .idle-copy {
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+    max-width: 34ch;
+    margin-bottom: 16px;
+  }
+
+  .idle-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
   }
 
   .waveform {
@@ -876,6 +854,15 @@
     margin-bottom: 14px;
   }
 
+  .idle-tag {
+    color: var(--accent);
+  }
+
+  .idle-title {
+    font-size: 24px;
+    max-width: 14ch;
+  }
+
   .np-btns {
     display: flex;
     gap: 10px;
@@ -909,6 +896,13 @@
     border-radius: 5px;
   }
 
+  .link-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+
   .vol-row {
     display: flex;
     align-items: center;
@@ -922,31 +916,44 @@
     letter-spacing: 1px;
   }
 
-  .vol-track {
+  .vol-slider {
     flex: 1;
+    appearance: none;
     height: 3px;
-    background: var(--border-default);
-    border-radius: 3px;
-    position: relative;
+    border-radius: 999px;
+    outline: none;
+    background: linear-gradient(
+      90deg,
+      var(--text-primary) 0%,
+      var(--text-primary) var(--volume-level),
+      var(--border-default) var(--volume-level),
+      var(--border-default) 100%
+    );
   }
 
-  .vol-fill {
-    width: 70%;
-    height: 100%;
-    background: var(--text-muted);
-    border-radius: 3px;
-  }
-
-  .vol-thumb {
-    position: absolute;
-    right: 30%;
-    top: 50%;
-    transform: translate(50%, -50%);
+  .vol-slider::-webkit-slider-thumb {
+    appearance: none;
     width: 12px;
     height: 12px;
     border-radius: 50%;
     background: var(--text-primary);
     border: 2px solid var(--bg-primary);
+    cursor: pointer;
+  }
+
+  .vol-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--text-primary);
+    border: 2px solid var(--bg-primary);
+    cursor: pointer;
+  }
+
+  .vol-slider::-moz-range-track {
+    height: 3px;
+    border-radius: 999px;
+    background: transparent;
   }
 
   .sched-label {
@@ -1263,4 +1270,5 @@
       display: none;
     }
   }
+
 </style>

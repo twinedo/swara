@@ -48,8 +48,6 @@
   }
 
   $: currentShow = getCurrentShow($activeSchedule)?.showName ?? null;
-  $: isConceptHome = $page.url.pathname === "/";
-
   const navLinks = [
     { href: "/", label: "Tune" },
     { href: "/nearby", label: "Nearby" },
@@ -63,25 +61,23 @@
 </svelte:head>
 
 <div class="shell">
-  {#if !isConceptHome}
-    <header class="topbar">
-      <div class="topbar-inner">
-        <a class="brand" href="/">SWARA <span>V1</span></a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">SWARA <span>V1</span></a>
 
-        <nav class="desktop-nav">
-          {#each navLinks as link}
-            <a class:active={$page.url.pathname === link.href} href={link.href}>{link.label}</a>
-          {/each}
-        </nav>
-      </div>
-    </header>
-  {/if}
+      <nav class="desktop-nav">
+        {#each navLinks as link}
+          <a class:active={$page.url.pathname === link.href} href={link.href}>{link.label}</a>
+        {/each}
+      </nav>
+    </div>
+  </header>
 
-  <main class:main-concept={isConceptHome} class="main">
+  <main class="main">
     <slot />
   </main>
 
-  {#if $activeChannel && !isConceptHome}
+  {#if $activeChannel && $page.url.pathname !== "/"}
     <div class="now-playing-wrap">
       <NowPlaying
         channel={$activeChannel}
@@ -109,6 +105,7 @@
   }
 
   .topbar {
+    display: none;
     position: sticky;
     top: 0;
     z-index: 20;
@@ -165,10 +162,6 @@
     padding-bottom: calc(104px + var(--sab));
   }
 
-  .main.main-concept {
-    padding-bottom: calc(104px + var(--sab));
-  }
-
   .mobile-nav {
     position: fixed;
     inset: auto 0 0;
@@ -182,6 +175,10 @@
   }
 
   @media (min-width: 1024px) {
+    .topbar {
+      display: block;
+    }
+
     .desktop-nav {
       display: flex;
     }

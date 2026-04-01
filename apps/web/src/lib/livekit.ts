@@ -2,6 +2,8 @@ import { browser } from "$app/environment";
 import { LIVEKIT_URL } from "$lib/config";
 import { Room, RoomEvent, Track } from "livekit-client";
 
+let listenerVolume = 0.72;
+
 function ensureLiveKitUrl(): string {
   if (!LIVEKIT_URL) {
     throw new Error("Set PUBLIC_LIVEKIT_URL before connecting to LiveKit.");
@@ -34,10 +36,25 @@ function attachAudioNode(track: { attach: () => HTMLMediaElement }, roomName: st
 
   if (element instanceof HTMLAudioElement) {
     element.autoplay = true;
+    element.volume = listenerVolume;
     element.dataset.swaraStream = roomName;
     element.style.display = "none";
     document.body.appendChild(element);
   }
+}
+
+export function setListenerVolume(nextVolume: number): void {
+  listenerVolume = Math.min(1, Math.max(0, nextVolume));
+
+  if (!browser) {
+    return;
+  }
+
+  document
+    .querySelectorAll<HTMLAudioElement>("[data-swara-stream]")
+    .forEach((element) => {
+      element.volume = listenerVolume;
+    });
 }
 
 export async function joinAsListener(token: string, roomName: string): Promise<Room> {
