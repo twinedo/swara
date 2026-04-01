@@ -113,7 +113,7 @@
   });
 </script>
 
-<div class="page-shell">
+<div class:guest-layout={!$user} class="page-shell">
   {#if !$user}
     <section class="gate panel">
       <span class="section-label">Broadcast</span>
@@ -271,6 +271,16 @@
   @media (min-width: 1024px) {
     .page-shell {
       padding: 24px;
+    }
+
+    .page-shell.guest-layout {
+      min-height: calc(100vh - 56px - var(--sat) - 28px);
+      display: grid;
+      place-items: center;
+    }
+
+    .page-shell.guest-layout > .gate {
+      width: min(100%, 680px);
     }
 
     .broadcast-shell {
