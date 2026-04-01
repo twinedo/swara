@@ -125,7 +125,6 @@ export async function startListening(channelId: string): Promise<ListenSession> 
       method: "POST",
       body: JSON.stringify(toListenRequest(channelId)),
     },
-    true,
   );
 
   return toListenSession(response);

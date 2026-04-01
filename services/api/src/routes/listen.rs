@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::{
-    AppState, db::channels, error::AppError, livekit, models::AuthUser, redis as redis_store,
-};
+use crate::{AppState, db::channels, error::AppError, livekit, redis as redis_store};
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct ListenRequest {
@@ -35,11 +33,9 @@ pub struct ListenChannelSummary {
     post,
     path = "/api/listen",
     request_body = ListenRequest,
-    security(("bearer_auth" = [])),
     responses(
         (status = 200, description = "Create listener token", body = ListenResponse),
         (status = 400, description = "Channel is not live", body = crate::error::ErrorResponse),
-        (status = 401, description = "Unauthorized", body = crate::error::ErrorResponse),
         (status = 404, description = "Channel not found", body = crate::error::ErrorResponse),
         (status = 500, description = "Internal server error", body = crate::error::ErrorResponse)
     ),
@@ -47,7 +43,6 @@ pub struct ListenChannelSummary {
 )]
 pub async fn listen(
     State(state): State<AppState>,
-    user: AuthUser,
     Json(body): Json<ListenRequest>,
 ) -> Result<Json<ListenResponse>, AppError> {
     // 1. Load channel — 404 if it doesn't exist
@@ -65,8 +60,9 @@ pub async fn listen(
         .as_deref()
         .unwrap_or_else(|| panic!("Live channel {} has no room name", channel.id));
 
-    // 3. Generate subscriber token
-    let token = livekit::generate_subscriber_token(&state.config, room_name, &user.id.to_string())?;
+    // 3. Generate an anonymous subscriber token so listening stays public.
+    let listener_identity = format!("listener-{}", Uuid::new_v4());
+    let token = livekit::generate_subscriber_token(&state.config, room_name, &listener_identity)?;
 
     // 4. Increment listener count in Redis — non-fatal
     let listener_count = redis_store::increment_listener(&state.redis, channel.id).await;
