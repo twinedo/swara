@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { browser } from "$app/environment";
+  import type { LatLng } from "@swara/types";
   import { createChannel, fetchOwnedChannels, login, register } from "$lib/api/client";
   import {
     ownedChannel,
@@ -8,7 +10,9 @@
     activeLocation,
     clearSinggah,
     isPro,
+    locationError,
     manualLocation,
+    setManualFallback,
     singgah,
   } from "$lib/stores/location";
   import { clearSession, setSession, user } from "$lib/stores/user";
@@ -20,9 +24,15 @@
   let authError: string | null = null;
   let authSuccess: string | null = null;
 
+  let manualListenerLat = "";
+  let manualListenerLng = "";
+  let locationMessage: string | null = null;
+
   let channelName = "";
   let channelFrequency = "98.7";
   let channelRadius = "15000";
+  let manualChannelLat = "";
+  let manualChannelLng = "";
   let channelBusy = false;
   let channelError: string | null = null;
   let channelSuccess: string | null = null;
@@ -32,6 +42,67 @@
     { label: "Bandung", lat: -6.9175, lng: 107.6191 },
     { label: "Yogyakarta", lat: -7.7971, lng: 110.3708 },
   ];
+
+  function parseCoordinate(value: string): number | null {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return null;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function resolveManualListenerLocation(): LatLng | null {
+    const lat = parseCoordinate(manualListenerLat);
+    const lng = parseCoordinate(manualListenerLng);
+
+    if (lat === null || lng === null) {
+      return null;
+    }
+
+    return { lat, lng };
+  }
+
+  function resolveManualChannelLocation(): LatLng | null {
+    const lat = parseCoordinate(manualChannelLat);
+    const lng = parseCoordinate(manualChannelLng);
+
+    if (lat === null || lng === null) {
+      return null;
+    }
+
+    return { lat, lng };
+  }
+
+  function resolveChannelLocation(): LatLng | null {
+    return $activeLocation ?? resolveManualChannelLocation();
+  }
+
+  function currentChannelLocationError(): string {
+    if ($locationError) {
+      return `Location access failed: ${$locationError}`;
+    }
+
+    if (browser && !window.isSecureContext) {
+      return "Location access is blocked on this HTTP page. Use manual coordinates here, or test on localhost/HTTPS.";
+    }
+
+    return "A current location is required to create a channel. Allow location access, or enter manual coordinates below.";
+  }
+
+  function applyManualListenerLocation() {
+    const nextLocation = resolveManualListenerLocation();
+
+    if (!nextLocation) {
+      locationMessage = "Enter valid latitude and longitude to set a manual listener location.";
+      return;
+    }
+
+    setManualFallback(nextLocation);
+    locationMessage = "Manual listener location saved.";
+  }
 
   async function submitAuth() {
     authBusy = true;
@@ -56,8 +127,10 @@
   }
 
   async function submitChannel() {
-    if (!$activeLocation) {
-      channelError = "A current location is required to create a channel.";
+    const nextLocation = resolveChannelLocation();
+
+    if (!nextLocation) {
+      channelError = currentChannelLocationError();
       return;
     }
 
@@ -69,14 +142,16 @@
       await createChannel({
         name: channelName,
         frequency: Number(channelFrequency),
-        lat: $activeLocation.lat,
-        lng: $activeLocation.lng,
+        lat: nextLocation.lat,
+        lng: nextLocation.lng,
         radiusM: Number(channelRadius),
       });
 
       setOwnedChannels(await fetchOwnedChannels());
       channelSuccess = "Channel created.";
       channelName = "";
+      manualChannelLat = "";
+      manualChannelLng = "";
     } catch (error) {
       channelError = error instanceof Error ? error.message : "Could not create channel.";
     } finally {
@@ -89,6 +164,20 @@
     setOwnedChannels([]);
     authSuccess = "Signed out.";
   }
+
+  $: if ($manualLocation && !manualListenerLat && !manualListenerLng) {
+    manualListenerLat = String($manualLocation.lat);
+    manualListenerLng = String($manualLocation.lng);
+  }
+
+  $: channelLocation = resolveChannelLocation();
+  $: channelLocationSource = $activeLocation
+    ? $isPro && $manualLocation
+      ? "Singgah"
+      : "GPS"
+    : resolveManualChannelLocation()
+      ? "Manual"
+      : "Missing";
 </script>
 
 <div class:guest-layout={!$user} class="page-shell settings-shell">
@@ -200,6 +289,44 @@
     {:else}
       <p class="status-copy">Sign in first to manage Singgah presets.</p>
     {/if}
+
+    <div class="field-grid">
+      <div class="field">
+        <label>
+          Manual Latitude
+          <input bind:value={manualListenerLat} inputmode="decimal" placeholder="-6.2088" />
+        </label>
+      </div>
+
+      <div class="field">
+        <label>
+          Manual Longitude
+          <input bind:value={manualListenerLng} inputmode="decimal" placeholder="106.8456" />
+        </label>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <button class="ghost-button mini-button" type="button" on:click={applyManualListenerLocation}>
+        Use Manual Location
+      </button>
+      <button class="ghost-button mini-button" type="button" on:click={clearSinggah}>
+        Clear Manual Location
+      </button>
+    </div>
+
+    {#if $locationError}
+      <p class="status-copy">GPS error: {$locationError}</p>
+    {/if}
+
+    <p class="status-copy">
+      Manual location is used automatically when GPS is unavailable. Pro listeners still use
+      Singgah as the active location when set.
+    </p>
+
+    {#if locationMessage}
+      <p class="status-copy">{locationMessage}</p>
+    {/if}
   </section>
 
   <section class="panel channel-card">
@@ -247,6 +374,42 @@
           </div>
         </div>
       </div>
+
+      <div class="meta-row">
+        <span class="meta-label">Channel Location</span>
+        <span class="meta-value mono">
+          {#if channelLocation}
+            {channelLocation.lat.toFixed(4)}, {channelLocation.lng.toFixed(4)}
+          {:else}
+            Missing
+          {/if}
+        </span>
+      </div>
+
+      <div class="meta-row">
+        <span class="meta-label">Location Source</span>
+        <span class="meta-value mono">{channelLocationSource}</span>
+      </div>
+
+      {#if !$activeLocation}
+        <div class="field-grid">
+          <div class="field">
+            <label>
+              Manual Latitude
+              <input bind:value={manualChannelLat} inputmode="decimal" placeholder="-6.2088" />
+            </label>
+          </div>
+
+          <div class="field">
+            <label>
+              Manual Longitude
+              <input bind:value={manualChannelLng} inputmode="decimal" placeholder="106.8456" />
+            </label>
+          </div>
+        </div>
+
+        <p class="status-copy">{currentChannelLocationError()}</p>
+      {/if}
 
       <button class="primary-button" disabled={channelBusy} type="button" on:click={submitChannel}>
         {channelBusy ? "Creating..." : "Create Channel"}

@@ -21,6 +21,12 @@ source .env.local
 ./scripts/start-livekit-dev.sh
 ```
 
+For phone testing on the same Wi-Fi, open the web app with your laptop's LAN IP
+(for example `http://192.168.1.10:5173`) instead of `127.0.0.1`. The API is
+already LAN-accessible, and `start-livekit-dev.sh` now binds LiveKit on
+`0.0.0.0` by default. If LiveKit advertises the wrong interface on your
+machine, restart it with `LIVEKIT_NODE_IP=<your-laptop-lan-ip>`.
+
 Then run the API:
 
 ```bash

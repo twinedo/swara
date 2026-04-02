@@ -65,7 +65,7 @@ Local dependencies are ready.
 
 Next terminal:
   source .env.local
-  livekit-server --dev
+  ./scripts/start-livekit-dev.sh
 
 API terminal:
   source .env.local

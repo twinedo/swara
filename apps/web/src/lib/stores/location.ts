@@ -13,8 +13,20 @@ export const coverageRadius = derived(isPro, ($isPro) => ($isPro ? 25_000 : 15_0
 export const activeLocation = derived(
   [gpsLocation, manualLocation, isPro],
   ([$gpsLocation, $manualLocation, $isPro]) =>
-    $isPro && $manualLocation ? $manualLocation : $gpsLocation,
+    $isPro && $manualLocation ? $manualLocation : ($gpsLocation ?? $manualLocation),
 );
+
+function persistManualLocation(next: LatLng | null): void {
+  if (!browser) {
+    return;
+  }
+
+  if (next) {
+    window.localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(next));
+  } else {
+    window.localStorage.removeItem(LOCATION_STORAGE_KEY);
+  }
+}
 
 export function restoreSinggah(): void {
   if (!browser) {
@@ -40,20 +52,19 @@ export function singgah(next: LatLng): boolean {
   }
 
   manualLocation.set(next);
-
-  if (browser) {
-    window.localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(next));
-  }
+  persistManualLocation(next);
 
   return true;
 }
 
+export function setManualFallback(next: LatLng): void {
+  manualLocation.set(next);
+  persistManualLocation(next);
+}
+
 export function clearSinggah(): void {
   manualLocation.set(null);
-
-  if (browser) {
-    window.localStorage.removeItem(LOCATION_STORAGE_KEY);
-  }
+  persistManualLocation(null);
 }
 
 export function startLocationWatch(): () => void {
