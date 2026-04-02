@@ -1,13 +1,15 @@
 <script lang="ts">
+  import { afterNavigate, beforeNavigate } from "$app/navigation";
   import { page } from "$app/stores";
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
 
   import "../app.css";
   import { fetchOwnedChannels } from "$lib/api/client";
   import BottomNav from "$lib/components/BottomNav.svelte";
   import NowPlaying from "$lib/components/NowPlaying.svelte";
-  import { leaveRoom } from "$lib/livekit";
-  import { clearMediaSession } from "$lib/mediaSession";
+  import { leaveRoom, pauseListenerAudio, resumeListenerAudio } from "$lib/livekit";
+  import { clearMediaSession, setPlaybackState } from "$lib/mediaSession";
   import {
     activeChannel,
     activeSchedule,
@@ -35,7 +37,30 @@
     const stopWatching = startLocationWatch();
     void hydrateOwnedChannel();
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void resumeSharedPlayback();
+      }
+    };
+
+    const handlePageShow = () => {
+      void resumeSharedPlayback();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pageshow", handlePageShow);
+
+    beforeNavigate(() => {
+      pauseSharedPlayback();
+    });
+
+    afterNavigate(() => {
+      void resumeSharedPlayback();
+    });
+
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pageshow", handlePageShow);
       stopWatching();
     };
   });
@@ -45,6 +70,25 @@
     resetListeningState();
     activeChannel.set(null);
     clearMediaSession();
+    setPlaybackState("none");
+  }
+
+  async function resumeSharedPlayback() {
+    if (!get(listenerRoom) || get(playbackState) !== "playing") {
+      return;
+    }
+
+    await resumeListenerAudio(get(listenerRoom));
+    setPlaybackState("playing");
+  }
+
+  function pauseSharedPlayback() {
+    if (!get(listenerRoom) || get(playbackState) !== "playing") {
+      return;
+    }
+
+    pauseListenerAudio(get(listenerRoom));
+    setPlaybackState("paused");
   }
 
   $: currentShow = getCurrentShow($activeSchedule)?.showName ?? null;

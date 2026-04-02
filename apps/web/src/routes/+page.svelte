@@ -7,7 +7,7 @@
     fetchSchedule,
     startListening,
   } from "$lib/api/client";
-  import { joinAsListener, leaveRoom, setListenerVolume } from "$lib/livekit";
+  import { joinAsListener, leaveRoom, resumeListenerAudio, setListenerVolume } from "$lib/livekit";
   import { clearMediaSession, setMediaSession, setPlaybackState } from "$lib/mediaSession";
   import {
     activeChannel,
@@ -21,60 +21,6 @@
   } from "$lib/stores/channel";
   import { activeLocation, coverageRadius, locationError } from "$lib/stores/location";
   import { formatDistance, formatFrequency, getCurrentShow } from "$lib/utils/format";
-
-  const fallbackChannels: Channel[] = [
-    {
-      id: "fallback-1",
-      frequency: 98.7,
-      name: "Kopi Pagi FM",
-      status: "live",
-      distanceM: 2_100,
-      listenerCount: 43,
-      owner: { username: "Depok Tengah" },
-    },
-    {
-      id: "fallback-2",
-      frequency: 101.2,
-      name: "Berita Malam",
-      status: "live",
-      distanceM: 4_800,
-      listenerCount: 12,
-      owner: { username: "Margonda" },
-    },
-    {
-      id: "fallback-3",
-      frequency: 105.5,
-      name: "Indie Sore",
-      status: "offline",
-      distanceM: 9_300,
-      listenerCount: 0,
-      owner: { username: "Cinere" },
-    },
-    {
-      id: "fallback-4",
-      frequency: 107.0,
-      name: "Ngobrol Subuh",
-      status: "live",
-      distanceM: 11_700,
-      listenerCount: 8,
-      owner: { username: "Limo" },
-    },
-    {
-      id: "fallback-5",
-      frequency: 88.3,
-      name: "Senja Radio",
-      status: "offline",
-      distanceM: 14_100,
-      listenerCount: 0,
-      owner: { username: "Sawangan" },
-    },
-  ];
-
-  const fallbackSchedule = [
-    { startTime: "06:00", showName: "Morning Talk", hostName: "Raka & Dina" },
-    { startTime: "09:00", showName: "Kopi Sambil Kerja", hostName: "Solo show - Bimo" },
-    { startTime: "12:00", showName: "Siang Santai", hostName: "Community call-in" },
-  ];
 
   const desktopWave = [7, 13, 5, 17, 9, 15, 19, 11, 7, 15, 17, 5, 13, 9, 7, 17, 11, 15];
   const mobileWave = [5, 11, 7, 15, 9, 13, 5, 11, 15, 7];
@@ -132,6 +78,13 @@
 
     if (get(activeChannel)?.id === channel.id && get(playbackState) === "playing") {
       await stopListening();
+      return;
+    }
+
+    if (get(activeChannel)?.id === channel.id && get(playbackState) === "paused") {
+      await resumeListenerAudio(get(listenerRoom));
+      playbackState.set("playing");
+      setPlaybackState("playing");
       return;
     }
 
@@ -242,19 +195,27 @@
   }
 
   $: currentShow = getCurrentShow($activeSchedule);
-  $: displayChannels = $nearbyChannels.length > 0 ? $nearbyChannels : fallbackChannels;
-  $: featuredChannel = displayChannels.find((channel) => channel.status === "live") ?? displayChannels[0] ?? null;
+  $: displayChannels = $nearbyChannels;
+  $: hasNearbyChannels = displayChannels.length > 0;
+  $: featuredChannel = displayChannels.find((channel) => channel.status === "live") ?? null;
+  $: previewChannel = featuredChannel ?? displayChannels[0] ?? null;
   $: activeDesktopChannel = $activeChannel;
   $: mapChannels = displayChannels.slice(0, 4);
-  $: scheduleRows = $activeSchedule.length > 0 ? $activeSchedule : fallbackSchedule;
+  $: scheduleRows = $activeSchedule;
   $: primaryLabel = primaryActionLabel($playbackState, featuredChannel);
   $: isDesktopPlaying = $playbackState === "playing" && !!activeDesktopChannel;
-  $: nowPlayingTitle = currentShow?.showName ?? (activeDesktopChannel ? `${activeDesktopChannel.name} Live Feed` : "Morning Talk - Eps 34");
+  $: isMobilePlaying = !!featuredChannel && $playbackState === "playing" && $activeChannel?.id === featuredChannel.id;
+  $: isMobilePaused = !!featuredChannel && $playbackState === "paused" && $activeChannel?.id === featuredChannel.id;
+  $: nowPlayingTitle = currentShow?.showName
+    ?? (activeDesktopChannel ? `${activeDesktopChannel.name} Live Feed` : "Choose a nearby station");
   $: nowPlayingBy = currentShow?.hostName
     ? `by ${currentShow.hostName}`
     : activeDesktopChannel
       ? `${activeDesktopChannel.owner.username} - ${channelDistance(activeDesktopChannel)} away`
-      : "by Raka & Dina";
+      : "Location access finds real stations around you";
+  $: emptyScheduleCopy = $activeChannel
+    ? "No schedule published for this channel yet."
+    : "Tune a nearby station to see its schedule.";
 </script>
 
 <div class="desktop-view">
@@ -305,6 +266,10 @@
 
         {#if isLoading}
           <p class="status-copy">Scanning your area for nearby stations...</p>
+        {:else if !hasNearbyChannels}
+          <p class="status-copy">
+            No nearby stations found yet. Create one in Broadcast or Settings, or move your search radius.
+          </p>
         {:else}
           <div class="ch-list">
             {#each displayChannels.slice(0, 5) as channel (channel.id)}
@@ -365,6 +330,9 @@
             {/each}
           </div>
           <div class="map-radius-lbl">{Math.round($coverageRadius / 1000)} km radius</div>
+          {#if !hasNearbyChannels}
+            <p class="status-copy">Map markers appear after the API returns real nearby channels.</p>
+          {/if}
         </div>
 
         <div class="np-card">
@@ -409,15 +377,19 @@
 
         <div>
           <div class="sched-label">TODAY'S SCHEDULE</div>
-          {#each scheduleRows.slice(0, 4) as entry}
-            <div class="sched-row">
-              <div class="sched-time">{entry.startTime}</div>
-              <div>
-                <div class="sched-show">{entry.showName}</div>
-                <div class="sched-host">{entry.hostName ?? "Community hosted"}</div>
+          {#if scheduleRows.length > 0}
+            {#each scheduleRows.slice(0, 4) as entry}
+              <div class="sched-row">
+                <div class="sched-time">{entry.startTime}</div>
+                <div>
+                  <div class="sched-show">{entry.showName}</div>
+                  <div class="sched-host">{entry.hostName ?? "Community hosted"}</div>
+                </div>
               </div>
-            </div>
-          {/each}
+            {/each}
+          {:else}
+            <p class="status-copy">{emptyScheduleCopy}</p>
+          {/if}
         </div>
       </div>
     </div>
@@ -436,12 +408,14 @@
     <div class="tune-screen">
       <div class="tune-stack">
         <div class="tune-hero">
-          <div class="tune-freq-big">{featuredChannel ? formatFrequency(featuredChannel.frequency) : "--.-"}</div>
+          <div class="tune-freq-big">{previewChannel ? formatFrequency(previewChannel.frequency) : "--.-"}</div>
           <div class="tune-fm">FM</div>
         </div>
-        <div class="tune-name">{featuredChannel?.name ?? "Kopi Pagi FM"}</div>
+        <div class="tune-name">{previewChannel?.name ?? "No live stations nearby"}</div>
         <div class="tune-sub">
-          {featuredChannel ? `${channelLocation(featuredChannel)} away` : "Depok Tengah - 2.1 km away"}
+          {previewChannel
+            ? `${channelLocation(previewChannel)} away`
+            : "Enable location and create a live channel to test audio."}
         </div>
 
         <div class="tune-wv" aria-hidden="true">
@@ -455,21 +429,36 @@
           <button
             type="button"
             class="ctrl-play"
-            aria-label="Tune in"
+            aria-label={isMobilePlaying ? "Stop listening" : isMobilePaused ? "Resume listening" : "Tune in"}
             disabled={!featuredChannel}
             on:click={tunePrimary}
           >
-            <div class="play-tri"></div>
+            {#if isMobilePlaying}
+              <div class="pause-bars" aria-hidden="true">
+                <span></span>
+                <span></span>
+              </div>
+            {:else}
+              <div class:resume-tri={isMobilePaused} class="play-tri"></div>
+            {/if}
           </button>
           <div class="ctrl-heart">FAV</div>
         </div>
-        <div class="tune-listeners">{(featuredChannel?.listenerCount ?? 0).toString()} people tuned in nearby</div>
+        <div class="tune-listeners">
+          {featuredChannel
+            ? `${(featuredChannel.listenerCount ?? 0).toString()} people tuned in nearby`
+            : previewChannel
+              ? "This nearby station is offline right now"
+              : "No live listeners nearby yet"}
+        </div>
 
         <div class="lock-notice">
           <div class="lock-notice-icon">LOCK</div>
           <div>
-            <div class="lock-notice-title">{errorMessage ? "Playback notice" : "Lock screen controls active"}</div>
-            <div class="lock-notice-sub">{errorMessage ?? "Audio keeps playing in background"}</div>
+            <div class="lock-notice-title">{errorMessage ? "Playback notice" : featuredChannel ? "Lock screen controls active" : "Station offline"}</div>
+            <div class="lock-notice-sub">
+              {errorMessage ?? (featuredChannel ? "Audio keeps playing in background" : "Start broadcasting on the desktop first, then tune in here.")}
+            </div>
           </div>
         </div>
       </div>
@@ -1162,6 +1151,23 @@
     border-width: 11px 0 11px 18px;
     border-color: transparent transparent transparent #0d0d0d;
     margin-left: 3px;
+  }
+
+  .play-tri.resume-tri {
+    transform: scale(0.9);
+  }
+
+  .pause-bars {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pause-bars span {
+    width: 7px;
+    height: 22px;
+    border-radius: 999px;
+    background: #0d0d0d;
   }
 
   .tune-listeners {
