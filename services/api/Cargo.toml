@@ -18,7 +18,7 @@ tower = { workspace = true }
 tower-http = { workspace = true }
 
 # Database
-sqlx             = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate", "rust_decimal"] }
+sqlx             = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate", "rust_decimal"] }
 
 # Redis
 deadpool-redis = { workspace = true }
