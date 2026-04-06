@@ -13,6 +13,7 @@
     prepareBroadcastInput,
     releasePreparedBroadcastInput,
     setBroadcastInputEnabled,
+    setBroadcastInputVolume,
     setMicEnabled,
   } from "$lib/livekit";
   import {
@@ -49,7 +50,9 @@
   let programAudioInput: "none" | Exclude<BroadcastInput, "microphone"> = "none";
   let micEnabled = true;
   let micMuted = false;
+  let micVolume = 100;
   let sourceMuted = false;
+  let sourceVolume = 100;
   let statusMessage: string | null = null;
   let heartbeatId: number | null = null;
 
@@ -122,7 +125,11 @@
     try {
       const session = await startBroadcast($ownedChannel.id);
       broadcastStarted = true;
-      const room = await joinAsBroadcaster(session.livekitToken, preparedInput, micEnabled);
+      const room = await joinAsBroadcaster(session.livekitToken, preparedInput, {
+        micEnabled,
+        micGain: micVolume / 100,
+        sourceGain: sourceVolume / 100,
+      });
       broadcasterRoom.set(room);
       broadcastState.set("live");
       ensureHeartbeatLoop();
@@ -167,7 +174,7 @@
     }
 
     const nextEnabled = micMuted;
-    await setMicEnabled($broadcasterRoom, nextEnabled);
+    await setMicEnabled($broadcasterRoom, nextEnabled, micVolume / 100);
     micMuted = !micMuted;
   }
 
@@ -179,6 +186,34 @@
     const nextEnabled = sourceMuted;
     await setBroadcastInputEnabled($broadcasterRoom, programAudioInput, nextEnabled);
     sourceMuted = !sourceMuted;
+  }
+
+  function handleMicVolumeInput(event: Event) {
+    const target = event.currentTarget as HTMLInputElement | null;
+
+    if (!target) {
+      return;
+    }
+
+    micVolume = Number(target.value);
+
+    if ($broadcasterRoom) {
+      setBroadcastInputVolume($broadcasterRoom, "microphone", micVolume / 100);
+    }
+  }
+
+  function handleSourceVolumeInput(event: Event) {
+    const target = event.currentTarget as HTMLInputElement | null;
+
+    if (!target) {
+      return;
+    }
+
+    sourceVolume = Number(target.value);
+
+    if ($broadcasterRoom && programAudioInput !== "none") {
+      setBroadcastInputVolume($broadcasterRoom, programAudioInput, sourceVolume / 100);
+    }
   }
 
   $: if (!canUseDisplayAudio() && programAudioInput !== "none") {
@@ -289,6 +324,55 @@
           </div>
         {/if}
 
+        <div class="mixer-panel">
+          <span class="section-label">Mixer</span>
+          <div class="mixer-grid">
+            <div class="mix-strip">
+              <div class="mix-head">
+                <strong>Mic Level</strong>
+                <span>{micVolume}%</span>
+              </div>
+              <input
+                aria-label="Microphone volume"
+                class="mix-slider"
+                type="range"
+                min="0"
+                max="200"
+                step="5"
+                value={micVolume}
+                on:input={handleMicVolumeInput}
+              />
+              <p>
+                Keep voice present over the program feed. `100%` is normal level and `200%`
+                boosts harder.
+              </p>
+            </div>
+
+            {#if programAudioInput !== "none"}
+              <div class="mix-strip">
+                <div class="mix-head">
+                  <strong>{programAudioInput === "tab-audio" ? "Tab Level" : "Desktop Level"}</strong>
+                  <span>{sourceVolume}%</span>
+                </div>
+                <input
+                  aria-label="Program audio volume"
+                  class="mix-slider"
+                  type="range"
+                  min="0"
+                  max="200"
+                  step="5"
+                  value={sourceVolume}
+                  on:input={handleSourceVolumeInput}
+                />
+                <p>
+                  Shape the shared source independently so listeners hear music, tabs, or desktop
+                  audio at the right level.
+                </p>
+              </div>
+            {/if}
+          </div>
+        </div>
+
         <div class="controls">
           {#if $isOnAir}
             <button class="ghost-button" type="button" on:click={toggleMic}>
@@ -395,6 +479,56 @@
     gap: 10px;
   }
 
+  .mixer-panel {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .mixer-grid {
+    display: grid;
+    gap: 12px;
+  }
+
+  .mix-strip {
+    border: 1px solid var(--border-subtle);
+    border-radius: 18px;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.02);
+    display: grid;
+    gap: 10px;
+  }
+
+  .mix-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .mix-head strong,
+  .mix-head span {
+    font-family: "Share Tech Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+  }
+
+  .mix-head span {
+    color: var(--text-muted);
+  }
+
+  .mix-slider {
+    width: 100%;
+    accent-color: #e8c84a;
+  }
+
+  .mix-strip p {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+
   .source-button {
     min-height: 0;
     border-radius: 16px;
@@ -472,6 +606,10 @@
 
     .source-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .mixer-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 </style>

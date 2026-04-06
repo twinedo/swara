@@ -4,12 +4,31 @@ import { createLocalScreenTracks, type LocalTrack, Room, RoomEvent, Track } from
 
 let listenerVolume = 0.72;
 const broadcastCaptureTracks = new WeakMap<Room, LocalTrack[]>();
+const broadcastMixStates = new WeakMap<Room, BroadcastMixState>();
 
 export type BroadcastInput = "microphone" | "tab-audio" | "desktop-audio";
 
 export interface PreparedBroadcastInput {
   source: Exclude<BroadcastInput, "microphone">;
   tracks: LocalTrack[];
+}
+
+export interface BroadcasterJoinOptions {
+  micEnabled?: boolean;
+  micGain?: number;
+  sourceGain?: number;
+}
+
+interface BroadcastAudioChannel {
+  gainNode: GainNode;
+  outputTrack: MediaStreamTrack;
+  rawTrack: MediaStreamTrack;
+  sourceNode: MediaStreamAudioSourceNode;
+}
+
+interface BroadcastMixState {
+  audioContext: AudioContext;
+  channels: Partial<Record<BroadcastInput, BroadcastAudioChannel>>;
 }
 
 function ensureLiveKitUrl(): string {
@@ -63,6 +82,19 @@ function stopBroadcastTracks(tracks: LocalTrack[]): void {
 }
 
 function cleanupBroadcastCapture(room: Room): void {
+  const mixState = broadcastMixStates.get(room);
+
+  if (mixState) {
+    Object.values(mixState.channels).forEach((channel) => {
+      channel?.sourceNode.disconnect();
+      channel?.gainNode.disconnect();
+      channel?.outputTrack.stop();
+      channel?.rawTrack.stop();
+    });
+    void mixState.audioContext.close().catch(() => undefined);
+    broadcastMixStates.delete(room);
+  }
+
   const tracks = broadcastCaptureTracks.get(room);
 
   if (!tracks) {
@@ -90,6 +122,124 @@ function ensureDisplayAudioTrack(
   }
 
   throw new Error("No desktop audio was shared. Pick a screen, window, or tab with audio enabled.");
+}
+
+function clampBroadcastGain(nextGain: number): number {
+  return Math.min(2, Math.max(0, nextGain));
+}
+
+function getBroadcastTrackSource(source: BroadcastInput): Track.Source {
+  return source === "microphone" ? Track.Source.Microphone : Track.Source.ScreenShareAudio;
+}
+
+function getAudioContextConstructor(): typeof AudioContext | undefined {
+  if (!browser) {
+    return undefined;
+  }
+
+  return (
+    window.AudioContext ??
+    (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext
+  );
+}
+
+function createBroadcastMixState(): BroadcastMixState {
+  const AudioContextConstructor = getAudioContextConstructor();
+
+  if (!AudioContextConstructor) {
+    throw new Error("This browser cannot build the broadcaster audio mixer.");
+  }
+
+  return {
+    audioContext: new AudioContextConstructor(),
+    channels: {},
+  };
+}
+
+function getOrCreateBroadcastMixState(room: Room): BroadcastMixState {
+  const existing = broadcastMixStates.get(room);
+
+  if (existing) {
+    return existing;
+  }
+
+  const nextState = createBroadcastMixState();
+  broadcastMixStates.set(room, nextState);
+  return nextState;
+}
+
+async function createBroadcastAudioChannel(
+  audioContext: AudioContext,
+  rawTrack: MediaStreamTrack,
+  initialGain: number,
+): Promise<BroadcastAudioChannel> {
+  if (audioContext.state === "suspended") {
+    await audioContext.resume().catch(() => undefined);
+  }
+
+  const sourceNode = audioContext.createMediaStreamSource(new MediaStream([rawTrack]));
+  const gainNode = audioContext.createGain();
+  const destination = audioContext.createMediaStreamDestination();
+
+  gainNode.gain.value = clampBroadcastGain(initialGain);
+  sourceNode.connect(gainNode);
+  gainNode.connect(destination);
+
+  const [outputTrack] = destination.stream.getAudioTracks();
+
+  if (!outputTrack) {
+    sourceNode.disconnect();
+    gainNode.disconnect();
+    rawTrack.stop();
+    throw new Error("Could not create a publishable audio mix for this source.");
+  }
+
+  return {
+    gainNode,
+    outputTrack,
+    rawTrack,
+    sourceNode,
+  };
+}
+
+async function publishMicrophoneTrack(room: Room, initialGain = 1): Promise<void> {
+  const existingPublication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+
+  if (existingPublication?.track) {
+    await existingPublication.track.unmute();
+    setBroadcastInputVolume(room, "microphone", initialGain);
+    return;
+  }
+
+  assertMicrophoneSupport();
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+  });
+  const [rawTrack] = stream.getAudioTracks();
+
+  if (!rawTrack) {
+    throw new Error("No microphone audio was captured from this device.");
+  }
+
+  const mixState = getOrCreateBroadcastMixState(room);
+  const channel = await createBroadcastAudioChannel(mixState.audioContext, rawTrack, initialGain);
+
+  try {
+    mixState.channels.microphone = channel;
+    await room.localParticipant.publishTrack(channel.outputTrack, {
+      source: Track.Source.Microphone,
+      name: "microphone",
+    });
+  } catch (error) {
+    delete mixState.channels.microphone;
+    channel.sourceNode.disconnect();
+    channel.gainNode.disconnect();
+    channel.outputTrack.stop();
+    channel.rawTrack.stop();
+    throw error;
+  }
 }
 
 export function assertBroadcastMediaSupport(source: BroadcastInput = "microphone"): void {
@@ -230,8 +380,9 @@ export async function joinAsListener(token: string, roomName: string): Promise<R
 export async function joinAsBroadcaster(
   token: string,
   input: PreparedBroadcastInput | null,
-  micEnabled = true,
+  options: BroadcasterJoinOptions = {},
 ): Promise<Room> {
+  const { micEnabled = true, micGain = 1, sourceGain = 1 } = options;
   const room = new Room();
   room.on(RoomEvent.Disconnected, () => {
     cleanupBroadcastCapture(room);
@@ -241,13 +392,21 @@ export async function joinAsBroadcaster(
 
   try {
     if (micEnabled) {
-      await room.localParticipant.setMicrophoneEnabled(true);
+      await publishMicrophoneTrack(room, micGain);
     }
 
     if (input) {
       const audioTrack = ensureDisplayAudioTrack(input.tracks, input.source);
+      const mixState = getOrCreateBroadcastMixState(room);
+      const channel = await createBroadcastAudioChannel(
+        mixState.audioContext,
+        audioTrack.mediaStreamTrack,
+        sourceGain,
+      );
+
+      mixState.channels[input.source] = channel;
       broadcastCaptureTracks.set(room, input.tracks);
-      await room.localParticipant.publishTrack(audioTrack, {
+      await room.localParticipant.publishTrack(channel.outputTrack, {
         source: Track.Source.ScreenShareAudio,
         name: input.source,
       });
@@ -272,8 +431,20 @@ export async function leaveRoom(room: Room | null): Promise<void> {
   cleanupAudioNodes(roomName);
 }
 
-export async function setMicEnabled(room: Room, enabled: boolean): Promise<void> {
-  await room.localParticipant.setMicrophoneEnabled(enabled);
+export async function setMicEnabled(room: Room, enabled: boolean, initialGain = 1): Promise<void> {
+  if (enabled) {
+    await publishMicrophoneTrack(room, initialGain);
+    return;
+  }
+
+  const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+  const track = publication?.track;
+
+  if (!track) {
+    return;
+  }
+
+  await track.mute();
 }
 
 export async function setBroadcastInputEnabled(
@@ -281,12 +452,7 @@ export async function setBroadcastInputEnabled(
   source: BroadcastInput,
   enabled: boolean,
 ): Promise<void> {
-  if (source === "microphone") {
-    await room.localParticipant.setMicrophoneEnabled(enabled);
-    return;
-  }
-
-  const publication = room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio);
+  const publication = room.localParticipant.getTrackPublication(getBroadcastTrackSource(source));
   const track = publication?.track;
 
   if (!track) {
@@ -298,6 +464,16 @@ export async function setBroadcastInputEnabled(
   } else {
     await track.mute();
   }
+}
+
+export function setBroadcastInputVolume(room: Room, source: BroadcastInput, nextVolume: number): void {
+  const channel = broadcastMixStates.get(room)?.channels[source];
+
+  if (!channel) {
+    return;
+  }
+
+  channel.gainNode.gain.value = clampBroadcastGain(nextVolume);
 }
 
 export async function resumeListenerAudio(room: Room | null): Promise<void> {
