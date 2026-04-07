@@ -17,18 +17,36 @@ export interface BroadcasterJoinOptions {
   micEnabled?: boolean;
   micGain?: number;
   sourceGain?: number;
+  deckGain?: number;
+  deckElement?: HTMLMediaElement | null;
 }
 
 interface BroadcastAudioChannel {
   gainNode: GainNode;
+  desiredGain: number;
+  enabled: boolean;
   outputTrack: MediaStreamTrack;
   rawTrack: MediaStreamTrack;
   sourceNode: MediaStreamAudioSourceNode;
 }
 
+interface BroadcastProgramChannel {
+  gainNode: GainNode;
+  desiredGain: number;
+  enabled: boolean;
+  element?: HTMLMediaElement;
+  disconnect: () => void;
+}
+
 interface BroadcastMixState {
   audioContext: AudioContext;
-  channels: Partial<Record<BroadcastInput, BroadcastAudioChannel>>;
+  programDestination: MediaStreamAudioDestinationNode;
+  programTrack: MediaStreamTrack;
+  channels: {
+    microphone?: BroadcastAudioChannel;
+    programSource?: BroadcastProgramChannel;
+    musicDeck?: BroadcastProgramChannel;
+  };
 }
 
 function ensureLiveKitUrl(): string {
@@ -85,12 +103,13 @@ function cleanupBroadcastCapture(room: Room): void {
   const mixState = broadcastMixStates.get(room);
 
   if (mixState) {
-    Object.values(mixState.channels).forEach((channel) => {
-      channel?.sourceNode.disconnect();
-      channel?.gainNode.disconnect();
-      channel?.outputTrack.stop();
-      channel?.rawTrack.stop();
-    });
+    mixState.channels.microphone?.sourceNode.disconnect();
+    mixState.channels.microphone?.gainNode.disconnect();
+    mixState.channels.microphone?.outputTrack.stop();
+    mixState.channels.microphone?.rawTrack.stop();
+    mixState.channels.programSource?.disconnect();
+    mixState.channels.musicDeck?.disconnect();
+    mixState.programTrack.stop();
     void mixState.audioContext.close().catch(() => undefined);
     broadcastMixStates.delete(room);
   }
@@ -128,10 +147,6 @@ function clampBroadcastGain(nextGain: number): number {
   return Math.min(2, Math.max(0, nextGain));
 }
 
-function getBroadcastTrackSource(source: BroadcastInput): Track.Source {
-  return source === "microphone" ? Track.Source.Microphone : Track.Source.ScreenShareAudio;
-}
-
 function getAudioContextConstructor(): typeof AudioContext | undefined {
   if (!browser) {
     return undefined;
@@ -151,8 +166,19 @@ function createBroadcastMixState(): BroadcastMixState {
     throw new Error("This browser cannot build the broadcaster audio mixer.");
   }
 
+  const audioContext = new AudioContextConstructor();
+  const programDestination = audioContext.createMediaStreamDestination();
+  const [programTrack] = programDestination.stream.getAudioTracks();
+
+  if (!programTrack) {
+    void audioContext.close().catch(() => undefined);
+    throw new Error("This browser cannot create the program audio bus.");
+  }
+
   return {
-    audioContext: new AudioContextConstructor(),
+    audioContext,
+    programDestination,
+    programTrack,
     channels: {},
   };
 }
@@ -197,10 +223,123 @@ async function createBroadcastAudioChannel(
 
   return {
     gainNode,
+    desiredGain: clampBroadcastGain(initialGain),
+    enabled: true,
     outputTrack,
     rawTrack,
     sourceNode,
   };
+}
+
+function setProgramChannelEnabled(channel: BroadcastProgramChannel, enabled: boolean): void {
+  channel.enabled = enabled;
+  channel.gainNode.gain.value = enabled ? channel.desiredGain : 0;
+}
+
+function setProgramChannelVolume(channel: BroadcastProgramChannel, nextGain: number): void {
+  channel.desiredGain = clampBroadcastGain(nextGain);
+  channel.gainNode.gain.value = channel.enabled ? channel.desiredGain : 0;
+}
+
+function createProgramTrackChannel(
+  audioContext: AudioContext,
+  rawTrack: MediaStreamTrack,
+  destination: MediaStreamAudioDestinationNode,
+  initialGain: number,
+): BroadcastProgramChannel {
+  const sourceNode = audioContext.createMediaStreamSource(new MediaStream([rawTrack]));
+  const gainNode = audioContext.createGain();
+  const channel: BroadcastProgramChannel = {
+    gainNode,
+    desiredGain: clampBroadcastGain(initialGain),
+    enabled: true,
+    disconnect: () => {
+      sourceNode.disconnect();
+      gainNode.disconnect();
+      rawTrack.stop();
+    },
+  };
+
+  sourceNode.connect(gainNode);
+  gainNode.connect(destination);
+  setProgramChannelVolume(channel, initialGain);
+  return channel;
+}
+
+type CaptureEnabledMediaElement = HTMLMediaElement & {
+  captureStream?: () => MediaStream;
+  mozCaptureStream?: () => MediaStream;
+};
+
+function captureMediaElementStream(element: HTMLMediaElement): MediaStream {
+  const captureEnabledElement = element as CaptureEnabledMediaElement;
+  const stream =
+    captureEnabledElement.captureStream?.() ?? captureEnabledElement.mozCaptureStream?.();
+
+  if (!stream) {
+    throw new Error("This browser cannot route local file playback into the broadcast mixer.");
+  }
+
+  return stream;
+}
+
+function createProgramElementChannel(
+  audioContext: AudioContext,
+  element: HTMLMediaElement,
+  destination: MediaStreamAudioDestinationNode,
+  initialGain: number,
+): BroadcastProgramChannel {
+  const stream = captureMediaElementStream(element);
+  const sourceNode = audioContext.createMediaStreamSource(stream);
+  const gainNode = audioContext.createGain();
+  const channel: BroadcastProgramChannel = {
+    gainNode,
+    desiredGain: clampBroadcastGain(initialGain),
+    enabled: true,
+    element,
+    disconnect: () => {
+      sourceNode.disconnect();
+      gainNode.disconnect();
+      stream.getTracks().forEach((track) => track.stop());
+    },
+  };
+
+  sourceNode.connect(gainNode);
+  gainNode.connect(destination);
+  setProgramChannelVolume(channel, initialGain);
+  return channel;
+}
+
+async function publishProgramTrack(room: Room): Promise<void> {
+  const publication = room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio);
+
+  if (publication?.track) {
+    return;
+  }
+
+  const mixState = getOrCreateBroadcastMixState(room);
+  await room.localParticipant.publishTrack(mixState.programTrack, {
+    source: Track.Source.ScreenShareAudio,
+    name: "program-audio",
+  });
+}
+
+function attachProgramSource(
+  room: Room,
+  input: PreparedBroadcastInput,
+  initialGain: number,
+): void {
+  const audioTrack = ensureDisplayAudioTrack(input.tracks, input.source);
+  const mixState = getOrCreateBroadcastMixState(room);
+
+  mixState.channels.programSource?.disconnect();
+  mixState.channels.programSource = createProgramTrackChannel(
+    mixState.audioContext,
+    audioTrack.mediaStreamTrack,
+    mixState.programDestination,
+    initialGain,
+  );
+  broadcastCaptureTracks.set(room, input.tracks);
 }
 
 async function publishMicrophoneTrack(room: Room, initialGain = 1): Promise<void> {
@@ -382,7 +521,7 @@ export async function joinAsBroadcaster(
   input: PreparedBroadcastInput | null,
   options: BroadcasterJoinOptions = {},
 ): Promise<Room> {
-  const { micEnabled = true, micGain = 1, sourceGain = 1 } = options;
+  const { micEnabled = true, micGain = 1, sourceGain = 1, deckGain = 1, deckElement = null } = options;
   const room = new Room();
   room.on(RoomEvent.Disconnected, () => {
     cleanupBroadcastCapture(room);
@@ -391,25 +530,18 @@ export async function joinAsBroadcaster(
   await room.connect(ensureLiveKitUrl(), token);
 
   try {
+    await publishProgramTrack(room);
+
     if (micEnabled) {
       await publishMicrophoneTrack(room, micGain);
     }
 
     if (input) {
-      const audioTrack = ensureDisplayAudioTrack(input.tracks, input.source);
-      const mixState = getOrCreateBroadcastMixState(room);
-      const channel = await createBroadcastAudioChannel(
-        mixState.audioContext,
-        audioTrack.mediaStreamTrack,
-        sourceGain,
-      );
+      attachProgramSource(room, input, sourceGain);
+    }
 
-      mixState.channels[input.source] = channel;
-      broadcastCaptureTracks.set(room, input.tracks);
-      await room.localParticipant.publishTrack(channel.outputTrack, {
-        source: Track.Source.ScreenShareAudio,
-        name: input.source,
-      });
+    if (deckElement && deckElement.currentSrc) {
+      bindMusicDeckElement(room, deckElement, deckGain);
     }
   } catch (error) {
     cleanupBroadcastCapture(room);
@@ -452,28 +584,78 @@ export async function setBroadcastInputEnabled(
   source: BroadcastInput,
   enabled: boolean,
 ): Promise<void> {
-  const publication = room.localParticipant.getTrackPublication(getBroadcastTrackSource(source));
-  const track = publication?.track;
-
-  if (!track) {
+  if (source === "microphone") {
+    await setMicEnabled(room, enabled);
     return;
   }
 
-  if (enabled) {
-    await track.unmute();
-  } else {
-    await track.mute();
-  }
-}
-
-export function setBroadcastInputVolume(room: Room, source: BroadcastInput, nextVolume: number): void {
-  const channel = broadcastMixStates.get(room)?.channels[source];
+  const channel = broadcastMixStates.get(room)?.channels.programSource;
 
   if (!channel) {
     return;
   }
 
-  channel.gainNode.gain.value = clampBroadcastGain(nextVolume);
+  setProgramChannelEnabled(channel, enabled);
+}
+
+export function bindMusicDeckElement(
+  room: Room,
+  element: HTMLMediaElement,
+  initialGain = 1,
+): void {
+  const mixState = getOrCreateBroadcastMixState(room);
+  const existingChannel = mixState.channels.musicDeck;
+
+  if (existingChannel?.element === element) {
+    setProgramChannelVolume(existingChannel, initialGain);
+    return;
+  }
+
+  existingChannel?.disconnect();
+  mixState.channels.musicDeck = createProgramElementChannel(
+    mixState.audioContext,
+    element,
+    mixState.programDestination,
+    initialGain,
+  );
+}
+
+export function setMusicDeckVolume(room: Room, nextVolume: number): void {
+  const channel = broadcastMixStates.get(room)?.channels.musicDeck;
+
+  if (!channel) {
+    return;
+  }
+
+  setProgramChannelVolume(channel, nextVolume);
+}
+
+export function setBroadcastInputVolume(room: Room, source: BroadcastInput, nextVolume: number): void {
+  const mixState = broadcastMixStates.get(room);
+
+  if (!mixState) {
+    return;
+  }
+
+  if (source === "microphone") {
+    const channel = mixState.channels.microphone;
+
+    if (!channel) {
+      return;
+    }
+
+    channel.desiredGain = clampBroadcastGain(nextVolume);
+    channel.gainNode.gain.value = channel.desiredGain;
+    return;
+  }
+
+  const channel = mixState.channels.programSource;
+
+  if (!channel) {
+    return;
+  }
+
+  setProgramChannelVolume(channel, nextVolume);
 }
 
 export async function resumeListenerAudio(room: Room | null): Promise<void> {
